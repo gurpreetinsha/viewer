@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TheRoadApp - Real-time Monitoring</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <style>
+    body { margin:0; font-family: sans-serif; background:#1a1a1a; }
+    #map { height:100vh; width:100vw; }
+    .control-panel {
+      position:absolute;top:20px;left:20px;z-index:1000;
+      background:rgba(35,35,35,0.6);padding:15px 20px;border-radius:12px;
+      color:#fff;font-size:14px;
+    }
+    .layer-control { margin:5px 0;display:flex;justify-content:space-between; }
+    .switch { position: relative; display:inline-block;width:40px;height:20px;}
+    .switch input {display:none;}
+    .slider {position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
+      background-color:#555;border-radius:20px;transition:.4s;}
+    .slider:before {content:"";position:absolute;height:14px;width:14px;left:3px;bottom:3px;
+      background:white;border-radius:50%;transition:.4s;}
+    input:checked + .slider {background-color:#007BFF;}
+    input:checked + .slider:before {transform:translateX(20px);}
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="control-panel">
+    <div class="layer-control"><span>Buses</span>
+      <label class="switch"><input type="checkbox" id="toggle-buses" checked><span class="slider"></span></label>
+    </div>
+    <div class="layer-control"><span>Potholes</span>
+      <label class="switch"><input type="checkbox" id="toggle-potholes" checked><span class="slider"></span></label>
+    </div>
+    <div class="layer-control"><span>Road Health</span>
+      <label class="switch"><input type="checkbox" id="toggle-health" checked><span class="slider"></span></label>
+    </div>
+  </div>
+
+<script>
+const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuamhrbWx2Zm15bnh5anlweWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTA4MjMsImV4cCI6MjA3MzgyNjgyM30.Xp1Y3UvqQhbuxP3KV_1dtW8Zff-yy0fA94G5O3wecOo"; // ⚠️ Use anon key
+
+const POLL = 4000;
+const map = L.map("map").setView([20,0],2);
+
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  attribution: '© OpenStreetMap © CARTO'
+}).addTo(map);
+
+const busLayer = L.layerGroup().addTo(map);
+const potholeLayer = L.layerGroup().addTo(map);
+const healthLayer = L.layerGroup().addTo(map);
+
+const busMarkers={};
+
+async function loadBuses(){
+  try{
+    const url=`${SUPABASE_URL}/rest/v1/bus_location?select=*&order=ts.desc&limit=100`;
+    const res=await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
+    const rows=await res.json();
+    const latest={};
+    rows.forEach(r=>{if(!latest[r.device_id]) latest[r.device_id]=r;});
+    for(const r of Object.values(latest)){
+      if(!r.lat||!r.lon) continue;
+      const pos=[r.lat,r.lon];
+      if(busMarkers[r.device_id]) busMarkers[r.device_id].setLatLng(pos);
+      else busMarkers[r.device_id]=L.marker(pos).addTo(busLayer).bindPopup(`Bus ${r.device_id}`);
+    }
+  }catch(e){console.error("bus load fail",e);}
+}
+
+async function loadPotholes(){
+  try{
+    const url=`${SUPABASE_URL}/rest/v1/potholes?select=*&order=ts.desc&limit=200`;
+    const res=await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
+    const rows=await res.json();
+    potholeLayer.clearLayers();
+    rows.forEach(r=>{
+      if(!r.lat||!r.lon) return;
+      let color="green";if(r.severity==="medium")color="orange";if(r.severity==="high")color="red";
+      L.circleMarker([r.lat,r.lon],{radius:6,color,fillColor:color,fillOpacity:0.8})
+        .addTo(potholeLayer).bindPopup(`Pothole ${r.severity}`);
+    });
+  }catch(e){console.error("pothole load fail",e);}
+}
+
+async function loadHealth(){
+  try{
+    const url=`${SUPABASE_URL}/rest/v1/road_health?select=*&order=ts.desc&limit=500`;
+    const res=await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
+    const rows=await res.json();
+    healthLayer.clearLayers();
+    rows.forEach(r=>{
+      let color="green";if(r.score==="medium")color="orange";if(r.score==="bad")color="red";
+      L.polyline([[r.lat_start,r.lon_start],[r.lat_end,r.lon_end]],{color,weight:5,opacity:0.9})
+        .addTo(healthLayer).bindPopup(`Road ${r.score}`);
+    });
+  }catch(e){console.error("health load fail",e);}
+}
+
+function poll(){loadBuses();loadPotholes();loadHealth();}
+setInterval(poll,POLL);poll();
+
+// Toggles
+document.getElementById('toggle-buses').addEventListener('change',()=>{map.hasLayer(busLayer)?map.removeLayer(busLayer):map.addLayer(busLayer);});
+document.getElementById('toggle-potholes').addEventListener('change',()=>{map.hasLayer(potholeLayer)?map.removeLayer(potholeLayer):map.addLayer(potholeLayer);});
+document.getElementById('toggle-health').addEventListener('change',()=>{map.hasLayer(healthLayer)?map.removeLayer(healthLayer):map.addLayer(healthLayer);});
+</script>
+</body>
+</html>
