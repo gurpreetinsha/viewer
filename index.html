@@ -2,118 +2,174 @@
 <html>
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TheRoadApp - Viewer</title>
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
   <style>
-    body { margin:0; font-family:sans-serif; background:#111; color:#eee; }
-    #map { height:80vh; }
-    button { padding:8px 12px; border:none; border-radius:6px; cursor:pointer; }
-    #hazard-form { margin:10px; background:#222; padding:10px; border-radius:8px; }
+    body { margin:0; font-family:'Space Grotesk',sans-serif; background:#1a1a1a; color:#eee; }
+    .tabs { display:flex; background:#222; }
+    .tab { flex:1; padding:15px; text-align:center; cursor:pointer; font-weight:600; }
+    .tab.active { background:#007BFF; }
+    .section { display:none; padding:20px; }
+    .section.active { display:block; }
+    #map,#road-map { height:70vh; border-radius:12px; margin-top:15px; }
+    button { padding:10px 14px; border:none; border-radius:8px; font-weight:500; cursor:pointer; }
+    #search-btn{background:#007BFF;color:#fff;}
+    #report-btn{background:#dc3545;color:#fff;width:100%;margin-top:20px;}
+    .bus-card{background:#2a2a2a;padding:12px;border-radius:8px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;}
+    .bus-card button{background:#28a745;color:#fff;}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;}
+    .modal{background:#161616;padding:20px;border-radius:12px;max-width:400px;width:90%;}
+    .modal h3{margin-top:0;}
+    .modal input,.modal textarea,.modal select{width:100%;margin:6px 0;padding:10px;border-radius:8px;border:1px solid #444;background:#222;color:#fff;}
+    .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:10px;}
+    .btn-primary{background:#007BFF;color:#fff;}
+    .btn-secondary{background:#666;color:#fff;}
   </style>
 </head>
 <body>
-  <h2 style="margin:10px">🚍 TheRoadApp Viewer</h2>
-  <div id="map"></div>
-  <div id="hazard-form">
-    <h3>⚠️ Report Hazard</h3>
-    <select id="hazard-type">
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" data-target="home">Home</div>
+  <div class="tab" data-target="road">Road Health</div>
+</div>
+
+<!-- Home -->
+<div id="home" class="section active">
+  <h2>🚍 TheRoadApp</h2>
+  <p>Track buses and report hazards.</p>
+  <input id="from" type="text" placeholder="Departure">
+  <input id="to" type="text" placeholder="Destination">
+  <button id="search-btn">Search</button>
+  <div id="bus-results"></div>
+  <div id="map" style="display:none;"></div>
+  <button id="report-btn">⚠️ Report Hazard</button>
+</div>
+
+<!-- Road -->
+<div id="road" class="section">
+  <h2>🛣️ Road Health</h2>
+  <p>See road condition segments.</p>
+  <div id="road-map"></div>
+</div>
+
+<!-- Hazard Modal -->
+<div id="modal" class="modal-overlay">
+  <div class="modal">
+    <h3>Report Hazard</h3>
+    <select id="hz-type">
       <option value="pothole">Pothole</option>
       <option value="obstruction">Obstruction</option>
-      <option value="flood">Water logging</option>
+      <option value="flood">Flooding</option>
       <option value="accident">Accident</option>
-    </select><br><br>
-    <textarea id="hazard-desc" placeholder="Description..." rows="2" style="width:100%"></textarea><br><br>
-    <button id="report">Submit</button>
+    </select>
+    <textarea id="hz-desc" placeholder="Description"></textarea>
+    <input id="hz-photo" type="file" accept="image/*" capture="environment">
+    <input id="hz-loc" readonly>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="cancel-hz">Cancel</button>
+      <button class="btn-primary" id="submit-hz">Submit</button>
+    </div>
   </div>
+</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuamhrbWx2Zm15bnh5anlweWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTA4MjMsImV4cCI6MjA3MzgyNjgyM30.Xp1Y3UvqQhbuxP3KV_1dtW8Zff-yy0fA94G5O3wecOo"; // ⚠️ Replace with your anon key
+const SUPABASE_URL="https://jnjhkmlvfmynxyjypyie.supabase.co";
+const SUPABASE_KEY="YOUR_SUPABASE_ANON_KEY"; // replace
 
-let map = L.map("map").setView([20,0], 3);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
+// Tabs
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    document.getElementById(t.dataset.target).classList.add("active");
+    if(t.dataset.target==="road") initRoad();
+  });
+});
 
-const busLayer = L.layerGroup().addTo(map);
-const roadLayer = L.layerGroup().addTo(map);
-const hazardLayer = L.layerGroup().addTo(map);
+// --- Bus tracking ---
+let map,busLayer={},busMarkers={};
+function initMap(){
+  if(map) return;
+  map=L.map("map").setView([20,0],3);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
+}
+const busIcon=L.icon({iconUrl:"https://cdn-icons-png.flaticon.com/512/61/61212.png",iconSize:[32,32],iconAnchor:[16,16]});
 
-const busIcon = L.icon({iconUrl:"https://cdn-icons-png.flaticon.com/512/61/61212.png",iconSize:[32,32],iconAnchor:[16,16]});
-
-// --- Load buses ---
 async function loadBuses(){
-  const url = `${SUPABASE_URL}/rest/v1/bus_location?select=*&order=ts.desc&limit=200`;
-  const res = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
-  const rows = await res.json();
-  busLayer.clearLayers();
-  const latest={};
-  rows.forEach(r=>{ if(!latest[r.device_id]) latest[r.device_id]=r; });
+  const url=`${SUPABASE_URL}/rest/v1/bus_location?select=*&order=ts.desc&limit=200`;
+  const res=await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
+  const rows=await res.json();
+  const latest={}; rows.forEach(r=>{ if(!latest[r.device_id]) latest[r.device_id]=r; });
+  Object.keys(busMarkers).forEach(id=>{ if(!latest[id]){ map.removeLayer(busMarkers[id]); delete busMarkers[id]; }});
   Object.values(latest).forEach(r=>{
-    if(r.lat && r.lon){
-      L.marker([r.lat,r.lon],{icon:busIcon}).addTo(busLayer)
-        .bindPopup(`Bus ${r.device_id}<br>${new Date(r.ts).toLocaleTimeString()}`);
-    }
+    if(!r.lat||!r.lon) return;
+    if(busMarkers[r.device_id]) busMarkers[r.device_id].setLatLng([r.lat,r.lon]);
+    else busMarkers[r.device_id]=L.marker([r.lat,r.lon],{icon:busIcon}).addTo(map).bindPopup(`Bus ${r.device_id}`);
   });
 }
+setInterval(()=>{ if(map) loadBuses(); },5000);
 
-// --- Load road health ---
-async function loadRoadHealth(){
-  const url = `${SUPABASE_URL}/rest/v1/road_health?select=*`;
-  const res = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
-  const rows = await res.json();
-  roadLayer.clearLayers();
-  rows.forEach(r=>{
-    let color = r.score==='bad'?'red': r.score==='medium'?'orange':'green';
-    L.polyline([[r.lat_start,r.lon_start],[r.lat_end,r.lon_end]],{color:color}).addTo(roadLayer)
-      .bindPopup(`Road: ${r.score}`);
-  });
-}
-
-// --- Load hazards ---
-async function loadHazards(){
-  const url = `${SUPABASE_URL}/rest/v1/hazards?select=*`;
-  const res = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
-  const rows = await res.json();
-  hazardLayer.clearLayers();
-  rows.forEach(r=>{
-    if(r.lat && r.lon){
-      L.circleMarker([r.lat,r.lon],{radius:6,color:"yellow"}).addTo(hazardLayer)
-        .bindPopup(`⚠️ ${r.type}<br>${r.description||""}`);
-    }
-  });
-}
-
-// --- Submit hazard ---
-document.getElementById("report").onclick = async ()=>{
-  if(!navigator.geolocation) return alert("No GPS available");
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    const payload = {
-      type: document.getElementById("hazard-type").value,
-      description: document.getElementById("hazard-desc").value,
-      lat: pos.coords.latitude,
-      lon: pos.coords.longitude,
-      created_at: new Date().toISOString()
+// Search buses (mocked)
+document.getElementById("search-btn").onclick=()=>{
+  const from=document.getElementById("from").value, to=document.getElementById("to").value;
+  const results=document.getElementById("bus-results"); results.innerHTML="";
+  [{id:"bus101"},{id:"bus202"}].forEach(b=>{
+    const card=document.createElement("div"); card.className="bus-card";
+    card.innerHTML=`<span>${b.id} ${from}→${to}</span><button data-id="${b.id}">Track</button>`;
+    results.appendChild(card);
+    card.querySelector("button").onclick=()=>{
+      document.getElementById("map").style.display="block"; initMap(); loadBuses();
     };
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/hazards`,{
-      method:"POST",
-      headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify(payload)
-    });
-    if(res.ok){
-      alert("✅ Hazard submitted");
-      document.getElementById("hazard-desc").value="";
-      loadHazards();
-    } else {
-      alert("❌ Error submitting hazard");
-    }
   });
 };
 
-// Refresh data every 5s
-loadBuses(); loadRoadHealth(); loadHazards();
-setInterval(loadBuses,5000);
-setInterval(loadRoadHealth,10000);
-setInterval(loadHazards,10000);
+// --- Road health ---
+let roadMap,roadLayer;
+function initRoad(){
+  if(roadMap) return;
+  roadMap=L.map("road-map").setView([20,0],3);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(roadMap);
+  roadLayer=L.layerGroup().addTo(roadMap);
+  fetchRoad();
+}
+async function fetchRoad(){
+  const url=`${SUPABASE_URL}/rest/v1/road_health?select=*`;
+  const res=await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
+  const rows=await res.json();
+  roadLayer.clearLayers();
+  rows.forEach(r=>{
+    let color=r.score==="bad"?"red":r.score==="medium"?"orange":"green";
+    L.polyline([[r.lat_start,r.lon_start],[r.lat_end,r.lon_end]],{color}).addTo(roadLayer);
+  });
+}
+
+// --- Hazards ---
+const modal=document.getElementById("modal");
+document.getElementById("report-btn").onclick=()=>{
+  modal.style.display="flex"; document.getElementById("hz-loc").value="Locating...";
+  navigator.geolocation.getCurrentPosition(pos=>{
+    document.getElementById("hz-loc").value=`${pos.coords.latitude.toFixed(6)},${pos.coords.longitude.toFixed(6)}`;
+    modal.dataset.lat=pos.coords.latitude; modal.dataset.lon=pos.coords.longitude;
+  });
+};
+document.getElementById("cancel-hz").onclick=()=>modal.style.display="none";
+document.getElementById("submit-hz").onclick=async()=>{
+  const type=document.getElementById("hz-type").value;
+  const desc=document.getElementById("hz-desc").value;
+  const file=document.getElementById("hz-photo").files[0];
+  const photo=file?await fileToBase64(file):null;
+  const payload={type,description:desc,lat:+modal.dataset.lat,lon:+modal.dataset.lon,photo_data:photo,created_at:new Date().toISOString()};
+  await fetch(`${SUPABASE_URL}/rest/v1/hazards`,{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  alert("Hazard submitted"); modal.style.display="none";
+};
+function fileToBase64(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(f);});}
 </script>
 </body>
 </html>
