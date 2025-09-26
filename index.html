@@ -2,121 +2,99 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TheRoadApp - Smart Mobility</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Bus Collector - TheRoadApp</title>
   <style>
-    /* same styles as you pasted above */
+    body { font-family: sans-serif; padding: 20px; background: #121212; color: #f5f5f5; }
+    button { padding: 14px 20px; border: none; border-radius: 8px; margin-top: 20px; cursor: pointer; font-weight: bold; }
+    #start { background: #007BFF; color: #fff; }
+    #stop { background: #dc3545; color: #fff; display: none; }
+    #log { margin-top: 20px; font-size: 0.9rem; white-space: pre-wrap; background:#1e1e1e; padding:10px; border-radius:8px; }
   </style>
 </head>
 <body>
-  <!-- Tabs -->
-  <div class="tabs">
-    <div class="tab active" data-target="home-section">Home</div>
-    <div class="tab" data-target="road-health-section">Road Health</div>
-  </div>
+  <h1>🚌 Bus Data Collector</h1>
+  <p>This app will capture GPS + accelerometer data every few seconds and send it to Supabase.</p>
+  <button id="start">Start Collecting</button>
+  <button id="stop">Stop</button>
+  <div id="log">Idle...</div>
 
-  <!-- Homepage -->
-  <div id="home-section" class="section active">
-    <h1>🚍 TheRoadApp</h1>
-    <p>Search your bus and track it in real-time.</p>
-    <button id="report-hazard-btn" class="btn-danger" style="width:100%; margin-top:18px;">Report Hazard</button>
-    <div id="map" style="height:60vh; margin-top:20px; border-radius:14px;"></div>
-  </div>
-
-  <!-- Road Health Section -->
-  <div id="road-health-section" class="section">
-    <h1>🛣️ Road Health</h1>
-    <p>Check road condition before your journey.</p>
-    <div id="road-health-map" style="height:65vh; margin-top:18px; border-radius:14px;"></div>
-  </div>
-
-  <!-- Modal -->
-  <div id="modal" class="modal-overlay">
-    <div class="modal" role="dialog" aria-modal="true">
-      <h3>Report Hazard</h3>
-      <div class="form-group">
-        <label>Type of hazard</label>
-        <select id="hazard-type">
-          <option value="pothole">Pothole</option>
-          <option value="obstruction">Obstruction</option>
-          <option value="water_logging">Water logging</option>
-          <option value="accident">Accident</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Description</label>
-        <textarea id="hazard-desc" rows="3"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Location</label>
-        <input type="text" id="hazard-loc" readonly>
-      </div>
-      <div class="actions">
-        <button class="btn-secondary" id="cancel-modal">Cancel</button>
-        <button class="btn-primary" id="submit-hazard">Submit</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script type="module">
     // === CONFIG ===
     const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co";
-    const PUBLIC_KEY = "YOUR_ANON_KEY"; // commuters use anon key safely
+    const SERVICE_KEY = "YOUR_SERVICE_ROLE_KEY"; // ⚠️ Replace with service_role key
 
-    // Tabs
-    document.querySelectorAll(".tab").forEach(tab=>{
-      tab.onclick=()=>{
-        document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-        document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
-        tab.classList.add("active");
-        document.getElementById(tab.dataset.target).classList.add("active");
-      };
+    let collecting = false;
+    let watchId = null;
+    let motionData = { x:0, y:0, z:0 };
+
+    // Capture accelerometer
+    window.addEventListener("devicemotion", (event) => {
+      if (event.accelerationIncludingGravity) {
+        motionData = {
+          x: event.accelerationIncludingGravity.x || 0,
+          y: event.accelerationIncludingGravity.y || 0,
+          z: event.accelerationIncludingGravity.z || 0,
+        };
+      }
     });
 
-    // Map init
-    const map = L.map("map").setView([20,77], 5);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
+    // Start collecting
+    document.getElementById("start").onclick = async () => {
+      collecting = true;
+      document.getElementById("start").style.display = "none";
+      document.getElementById("stop").style.display = "inline-block";
+      document.getElementById("log").textContent = "Collecting data...";
 
-    // Hazard modal
-    const modal=document.getElementById("modal");
-    document.getElementById("report-hazard-btn").onclick=()=>{
-      modal.style.display="flex";
-      navigator.geolocation.getCurrentPosition(pos=>{
-        document.getElementById("hazard-loc").value =
-          `${pos.coords.latitude}, ${pos.coords.longitude}`;
-      });
+      watchId = navigator.geolocation.watchPosition(async (pos) => {
+        if (!collecting) return;
+
+        const payload = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          speed: pos.coords.speed || 0,
+          accel_x: motionData.x,
+          accel_y: motionData.y,
+          accel_z: motionData.z,
+          collected_at: new Date().toISOString(),
+          source: "bus"
+        };
+
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/road_data`, {
+            method: "POST",
+            headers: {
+              apikey: SERVICE_KEY,
+              Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "return=minimal"
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (res.ok) {
+            document.getElementById("log").textContent =
+              `Sent: ${JSON.stringify(payload, null, 2)}`;
+          } else {
+            console.error(await res.text());
+          }
+        } catch (err) {
+          console.error(err);
+          document.getElementById("log").textContent = "Error sending data!";
+        }
+      }, (err) => {
+        console.error("GPS error:", err);
+        alert("Enable GPS for data collection!");
+      }, { enableHighAccuracy: true });
     };
-    document.getElementById("cancel-modal").onclick=()=>modal.style.display="none";
 
-    // Submit hazard
-    document.getElementById("submit-hazard").onclick=async()=>{
-      const loc=document.getElementById("hazard-loc").value.split(",");
-      const payload={
-        type:document.getElementById("hazard-type").value,
-        description:document.getElementById("hazard-desc").value,
-        latitude:parseFloat(loc[0]),
-        longitude:parseFloat(loc[1]),
-        reported_at:new Date().toISOString()
-      };
-
-      try{
-        const res=await fetch(`${SUPABASE_URL}/rest/v1/hazards`,{
-          method:"POST",
-          headers:{
-            apikey:PUBLIC_KEY,
-            Authorization:`Bearer ${PUBLIC_KEY}`,
-            "Content-Type":"application/json",
-            Prefer:"return=minimal"
-          },
-          body:JSON.stringify(payload)
-        });
-        if(res.ok){ alert("✅ Hazard reported!"); modal.style.display="none"; }
-        else{ alert("❌ Failed: "+await res.text()); }
-      }catch(e){ alert("Error: "+e.message); }
+    // Stop collecting
+    document.getElementById("stop").onclick = () => {
+      collecting = false;
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      document.getElementById("start").style.display = "inline-block";
+      document.getElementById("stop").style.display = "none";
+      document.getElementById("log").textContent = "Stopped.";
     };
   </script>
 </body>
