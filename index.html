@@ -2,457 +2,118 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TheRoadApp - Smart Mobility (fixed)</title>
-
+  <title>TheRoadApp - Viewer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-
   <style>
-    body {
-      margin: 0;
-      font-family: 'Space Grotesk', sans-serif;
-      background: #1a1a1a;
-      color: #f0f0f0;
-      transition: background 0.3s, color 0.3s;
-    }
-    .tabs {
-      display: flex;
-      background: #222;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-    .tab {
-      flex: 1;
-      padding: 15px;
-      text-align: center;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.3s;
-    }
-    .tab.active { background: #007BFF; }
-    .tab:hover { background: #333; }
-    .section { display: none; padding: 20px; }
-    .section.active { display: block; }
-
-    /* Homepage styles */
-    .form-group { margin-bottom: 15px; }
-    .form-group input {
-      width: 100%; padding: 10px;
-      border-radius: 8px; border: 1px solid #555;
-      background: #333; color: #fff;
-    }
-    #bus-results { margin-top: 20px; }
-    .bus-card {
-      background: rgba(40,40,40,0.8);
-      padding: 15px;
-      border-radius: 10px;
-      margin-bottom: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .bus-card button {
-      background: #007BFF; border: none;
-      padding: 8px 12px; border-radius: 6px;
-      cursor: pointer; color: white; font-weight: 500;
-    }
-    .bus-card button:hover { background:#0056b3; }
-
-    #map { height: 70vh; margin-top: 20px; border-radius: 12px; overflow: hidden; }
-
-    /* Road Health section */
-    #road-health-map { height: 70vh; margin-top: 20px; border-radius: 12px; }
-
-    /* Hazard Report button */
-    #report-hazard-btn {
-      width:100%; padding:12px; font-size:1rem; font-weight:500;
-      color:#fff; background:#dc3545; border:none; border-radius:8px;
-      cursor:pointer; transition:background 0.3s, transform 0.1s;
-      margin-top:20px;
-    }
-    #report-hazard-btn:hover { background:#a71d2a; }
-
-    /* Modal */
-    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:1000}
-    .modal{background:#161616;border-radius:12px;padding:18px;max-width:500px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,0.6);}
-    .modal h3{margin-top:0}
-    .modal .row{display:flex;gap:10px}
-    .modal input[type=text],.modal textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #444;background:#222;color:#fff}
-    .modal button{padding:10px 12px;border-radius:8px;border:none;cursor:pointer}
-    .btn-primary{background:#007BFF;color:#fff}
-    .btn-secondary{background:#666;color:#fff}
-
-    .theme-switcher{margin-top:12px;display:flex;gap:8px}
-    .theme-btn{padding:8px 10px;border-radius:8px;border:1px solid #333;background:#222;color:#fff;cursor:pointer}
+    body { margin:0; font-family:sans-serif; background:#111; color:#eee; }
+    #map { height:80vh; }
+    button { padding:8px 12px; border:none; border-radius:6px; cursor:pointer; }
+    #hazard-form { margin:10px; background:#222; padding:10px; border-radius:8px; }
   </style>
 </head>
 <body>
-
-<!-- Tabs -->
-<div class="tabs">
-  <div class="tab active" data-target="home-section">Home</div>
-  <div class="tab" data-target="road-health-section">Road Health</div>
-</div>
-
-<!-- Homepage -->
-<div id="home-section" class="section active">
-  <h1>🚍 TheRoadApp</h1>
-  <p>Search your bus and track it in real-time.</p>
-
-  <div class="form-group">
-    <input type="text" id="departure" placeholder="Enter Departure Location">
+  <h2 style="margin:10px">🚍 TheRoadApp Viewer</h2>
+  <div id="map"></div>
+  <div id="hazard-form">
+    <h3>⚠️ Report Hazard</h3>
+    <select id="hazard-type">
+      <option value="pothole">Pothole</option>
+      <option value="obstruction">Obstruction</option>
+      <option value="flood">Water logging</option>
+      <option value="accident">Accident</option>
+    </select><br><br>
+    <textarea id="hazard-desc" placeholder="Description..." rows="2" style="width:100%"></textarea><br><br>
+    <button id="report">Submit</button>
   </div>
-  <div class="form-group">
-    <input type="text" id="arrival" placeholder="Enter Arrival Location">
-  </div>
-  <button id="search-bus-btn">Search Buses</button>
-
-  <div id="bus-results"></div>
-
-  <button id="report-hazard-btn">Report Hazard</button>
-
-  <div id="map" style="display:none;"></div>
-
-  <div class="theme-switcher">
-    <div class="theme-btn" data-theme="osm">OSM</div>
-    <div class="theme-btn" data-theme="sat">Satellite</div>
-    <div class="theme-btn" data-theme="dark">Dark</div>
-    <div class="theme-btn" data-theme="topo">Topographic</div>
-  </div>
-</div>
-
-<!-- Road Health Section -->
-<div id="road-health-section" class="section">
-  <h1>🛣️ Road Health</h1>
-  <p>Check road condition before your journey.</p>
-  <div class="form-group">
-    <input type="text" id="road-from" placeholder="Enter Start Location">
-  </div>
-  <div class="form-group">
-    <input type="text" id="road-to" placeholder="Enter Destination">
-  </div>
-  <button id="road-health-btn">Check Road Condition</button>
-
-  <div id="road-health-map"></div>
-  <div class="theme-switcher" style="margin-top:8px;">
-    <div class="theme-btn" data-theme="osm-road">OSM</div>
-    <div class="theme-btn" data-theme="sat-road">Satellite</div>
-    <div class="theme-btn" data-theme="dark-road">Dark</div>
-  </div>
-</div>
-
-<!-- Modal for hazard -->
-<div id="modal" class="modal-overlay">
-  <div class="modal" role="dialog" aria-modal="true">
-    <h3>Report Hazard</h3>
-    <div class="form-group">
-      <label>Type of hazard</label>
-      <select id="hazard-type" style="width:100%;padding:10px;border-radius:8px;background:#222;border:1px solid #444;color:#fff">
-        <option value="pothole">Pothole</option>
-        <option value="obstruction">Obstruction (fallen tree, debris)</option>
-        <option value="water_logging">Water logging / Flood</option>
-        <option value="accident">Accident</option>
-        <option value="other">Other</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Description</label>
-      <textarea id="hazard-desc" rows="3" placeholder="Describe the hazard..."></textarea>
-    </div>
-    <div class="form-group">
-      <label>Photo (optional)</label>
-      <input id="hazard-photo" type="file" accept="image/*" capture="environment">
-    </div>
-    <div class="form-group">
-      <label>Detected Location</label>
-      <input type="text" id="hazard-loc" readonly>
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn-secondary" id="cancel-modal">Cancel</button>
-      <button class="btn-primary" id="submit-hazard">Submit</button>
-    </div>
-  </div>
-</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
 const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co";
-const SUPABASE_KEY = "YOUR_SUPABASE_KEY"; // replace with your key
-const POLL = 3000;
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuamhrbWx2Zm15bnh5anlweWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTA4MjMsImV4cCI6MjA3MzgyNjgyM30.Xp1Y3UvqQhbuxP3KV_1dtW8Zff-yy0fA94G5O3wecOo"; // ⚠️ Replace with your anon key
 
-let map, busLayer, busMarkers = {}, selectedBus = null, busPollId = null;
-let roadMap, roadLayerGroup;
-let baseLayers = {}, currentBaseLayer;
+let map = L.map("map").setView([20,0], 3);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
 
-// Tab switcher
-document.querySelectorAll(".tab").forEach(tab=>{
-  tab.addEventListener("click",()=>{
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
-    tab.classList.add("active");
-    const target = document.getElementById(tab.dataset.target);
-    target.classList.add("active");
+const busLayer = L.layerGroup().addTo(map);
+const roadLayer = L.layerGroup().addTo(map);
+const hazardLayer = L.layerGroup().addTo(map);
 
-    // If road-health tab shown, initialize/invalidate the road map
-    if(tab.dataset.target === 'road-health-section'){
-      initRoadMap();
-      setTimeout(()=>{ roadMap.invalidateSize(); }, 200);
-    }
-  });
-});
+const busIcon = L.icon({iconUrl:"https://cdn-icons-png.flaticon.com/512/61/61212.png",iconSize:[32,32],iconAnchor:[16,16]});
 
-// --- Map init (homepage) ---
-function initMap(){
-  if(map) return;
-  map = L.map("map").setView([20,0], 3);
-
-  // base layers
-  const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19});
-  const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
-  const cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {maxZoom: 19});
-  const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png');
-
-  baseLayers = { "OpenStreetMap": osm, "Satellite": esriSat, "Dark": cartoDark, "Topographic": topo };
-  osm.addTo(map);
-  currentBaseLayer = osm;
-
-  L.control.layers(baseLayers).addTo(map);
-
-  busLayer = L.layerGroup().addTo(map);
-}
-
-const busIcon = L.icon({iconUrl:"https://cdn-icons-png.flaticon.com/512/61/61212.png",iconSize:[35,35],iconAnchor:[17,17]});
-
-// --- Load buses (filtered by route later) ---
+// --- Load buses ---
 async function loadBuses(){
-  if(!map) return;
   const url = `${SUPABASE_URL}/rest/v1/bus_location?select=*&order=ts.desc&limit=200`;
-  try{
-    const res = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
-    const rows = await res.json();
-    const latest = {};
-    rows.forEach(r=>{ if(!latest[r.device_id]) latest[r.device_id]=r; });
-
-    // Update markers and preserve existing ones when possible
-    Object.keys(busMarkers).forEach(id=>{ if(!latest[id]){ busLayer.removeLayer(busMarkers[id]); delete busMarkers[id]; }});
-
-    for(const r of Object.values(latest)){
-      if(!r.lat||!r.lon) continue;
-      const pos = [r.lat, r.lon];
-
-      if(busMarkers[r.device_id]){
-        busMarkers[r.device_id].setLatLng(pos);
-        busMarkers[r.device_id].setPopupContent(`<b>Bus ID:</b> ${r.device_id}`);
-      } else {
-        const marker = L.marker(pos,{icon:busIcon}).bindPopup(`<b>Bus ID:</b> ${r.device_id}`);
-        marker.addTo(busLayer);
-        busMarkers[r.device_id]=marker;
-      }
-    }
-
-    // If user requested to track a specific bus, center map on it
-    if(selectedBus && busMarkers[selectedBus]){
-      map.setView(busMarkers[selectedBus].getLatLng(), 13, {animate:true});
-      busMarkers[selectedBus].openPopup();
-    }
-
-  }catch(e){console.error("Bus load failed:",e);}
-}
-
-// --- Search buses ---
-document.getElementById("search-bus-btn").addEventListener("click",()=>{
-  const from=document.getElementById("departure").value.trim();
-  const to=document.getElementById("arrival").value.trim();
-  const resultsDiv=document.getElementById("bus-results");
-  resultsDiv.innerHTML="";
-
-  // Mock results (replace with Supabase filtering by route)
-  const mockBuses=[{id:"bus101",route:`${from} → ${to}`},{id:"bus202",route:`${from} → ${to}`}];
-
-  mockBuses.forEach(bus=>{
-    const div=document.createElement("div");
-    div.className="bus-card";
-    div.innerHTML=`<span><b>${bus.id}</b><br>${bus.route}</span>
-                   <button class="track-btn" data-bus="${bus.id}">Track Bus</button>`;
-    resultsDiv.appendChild(div);
-  });
-
-  // attach handlers
-  document.querySelectorAll('.track-btn').forEach(btn=>btn.addEventListener('click',()=>{
-    trackBus(btn.dataset.bus);
-  }));
-});
-
-// --- Track selected bus ---
-function trackBus(busId){
-  selectedBus = busId;
-  document.getElementById("map").style.display="block";
-  initMap();
-  // clear previous poll
-  if(busPollId) clearInterval(busPollId);
-  loadBuses();
-  busPollId = setInterval(loadBuses, POLL);
-  // try to center on bus if present
-  setTimeout(()=>{ if(busMarkers[selectedBus]) map.setView(busMarkers[selectedBus].getLatLng(),13); else map.setView([20,0],5); }, 600);
-}
-
-// --- Road Health Map initialization (lazily when tab opened) ---
-function initRoadMap(){
-  if(roadMap) return;
-  roadMap = L.map('road-health-map').setView([20,0],3);
-
-  const osmRoad = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19});
-  const satRoad = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
-  const darkRoad = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
-
-  osmRoad.addTo(roadMap);
-  L.control.layers({"OSM":osmRoad,"Satellite":satRoad,"Dark":darkRoad}).addTo(roadMap);
-
-  // group for road markers
-  roadLayerGroup = L.layerGroup().addTo(roadMap);
-}
-
-// Theme switching buttons both maps
-document.querySelectorAll('.theme-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const t = btn.dataset.theme;
-    // homepage map themes
-    if(t==='osm' || t==='sat' || t==='dark' || t==='topo'){
-      if(!map) initMap();
-      if(currentBaseLayer) map.removeLayer(currentBaseLayer);
-      const chosen = { 'osm': 'OpenStreetMap', 'sat': 'Satellite', 'dark': 'Dark', 'topo':'Topographic' }[t];
-      currentBaseLayer = baseLayers[chosen];
-      if(currentBaseLayer) currentBaseLayer.addTo(map);
-    }
-
-    // road map themes
-    if(t==='osm-road' || t==='sat-road' || t==='dark-road'){
-      initRoadMap();
-      // find layer by name via tile URLs
-      const mapping = {
-        'osm-road': 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'sat-road': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        'dark-road': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      };
-      // brute force: remove existing base layers then add appropriate new
-      roadMap.eachLayer(layer=>{ if(layer instanceof L.TileLayer) roadMap.removeLayer(layer); });
-      L.tileLayer(mapping[t]).addTo(roadMap);
-      roadMap.invalidateSize();
+  const res = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
+  const rows = await res.json();
+  busLayer.clearLayers();
+  const latest={};
+  rows.forEach(r=>{ if(!latest[r.device_id]) latest[r.device_id]=r; });
+  Object.values(latest).forEach(r=>{
+    if(r.lat && r.lon){
+      L.marker([r.lat,r.lon],{icon:busIcon}).addTo(busLayer)
+        .bindPopup(`Bus ${r.device_id}<br>${new Date(r.ts).toLocaleTimeString()}`);
     }
   });
-});
+}
 
-// --- Road Health fetch ---
-document.getElementById('road-health-btn').addEventListener('click', async ()=>{
-  initRoadMap();
-  roadLayerGroup.clearLayers();
-
+// --- Load road health ---
+async function loadRoadHealth(){
   const url = `${SUPABASE_URL}/rest/v1/road_health?select=*`;
-  try{
-    const res = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
-    const rows = await res.json();
-    rows.forEach(r=>{
-      if(!r.lat||!r.lon) return;
-      let color = 'green'; if(r.condition==='bad') color='red'; else if(r.condition==='medium') color='orange';
-      L.circleMarker([r.lat,r.lon],{radius:7,color:color,fillColor:color,fillOpacity:0.8})
-        .addTo(roadLayerGroup).bindPopup(`<b>Road Condition:</b> ${r.condition}`);
-    });
-    roadMap.fitBounds(roadLayerGroup.getBounds() || [[20,0]]);
-  }catch(e){ console.error('Road health load failed:',e); }
-});
-
-// --- Report hazard flow ---
-const modal = document.getElementById('modal');
-const reportBtn = document.getElementById('report-hazard-btn');
-const cancelModal = document.getElementById('cancel-modal');
-const submitHazard = document.getElementById('submit-hazard');
-const hazardLocInput = document.getElementById('hazard-loc');
-let currentLat=null, currentLon=null;
-
-reportBtn.addEventListener('click', async ()=>{
-  // show modal and try to fetch geolocation
-  modal.style.display='flex';
-  hazardLocInput.value = 'Detecting location...';
-  // try browser geolocation
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition((pos)=>{
-      currentLat = pos.coords.latitude;
-      currentLon = pos.coords.longitude;
-      hazardLocInput.value = `${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}`;
-    }, (err)=>{
-      console.warn('Geolocation error:', err);
-      hazardLocInput.value = 'Location unavailable';
-    }, {enableHighAccuracy:true, timeout:8000});
-  } else {
-    hazardLocInput.value = 'Geolocation not supported';
-  }
-});
-
-cancelModal.addEventListener('click', ()=>{ modal.style.display='none'; });
-
-async function fileToBase64(file){
-  return new Promise((resolve, reject)=>{
-    if(!file) return resolve(null);
-    const reader = new FileReader();
-    reader.onload = ()=> resolve(reader.result);
-    reader.onerror = ()=> reject('File read error');
-    reader.readAsDataURL(file);
+  const res = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
+  const rows = await res.json();
+  roadLayer.clearLayers();
+  rows.forEach(r=>{
+    let color = r.score==='bad'?'red': r.score==='medium'?'orange':'green';
+    L.polyline([[r.lat_start,r.lon_start],[r.lat_end,r.lon_end]],{color:color}).addTo(roadLayer)
+      .bindPopup(`Road: ${r.score}`);
   });
 }
 
-submitHazard.addEventListener('click', async ()=>{
-  const type = document.getElementById('hazard-type').value;
-  const desc = document.getElementById('hazard-desc').value;
-  const file = document.getElementById('hazard-photo').files[0];
-
-  submitHazard.disabled = true; submitHazard.textContent = 'Submitting...';
-  try{
-    const photoData = await fileToBase64(file);
-
-    const payload = {
-      type, description: desc, lat: currentLat, lon: currentLon, photo_data: photoData, created_at: new Date().toISOString()
-    };
-
-    const url = `${SUPABASE_URL}/rest/v1/hazards`;
-    const res = await fetch(url,{
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer '+SUPABASE_KEY },
-      body: JSON.stringify(payload)
-    });
-
-    if(!res.ok){
-      const text = await res.text();
-      throw new Error('Server error: '+text);
-    }
-
-    alert('Hazard reported — thanks!');
-    modal.style.display='none';
-    document.getElementById('hazard-desc').value='';
-    document.getElementById('hazard-photo').value=null;
-  }catch(e){
-    console.error('Hazard submit failed:',e);
-    alert('Failed to submit hazard. Check console for details.');
-  }finally{ submitHazard.disabled=false; submitHazard.textContent='Submit'; }
-});
-
-// Ensure map invalidation when map container becomes visible
-const observer = new MutationObserver((mut)=>{
-  mut.forEach(m=>{
-    if(m.type==='attributes' && m.attributeName==='class'){
-      // if home-section became active and map displayed, invalidate
-      const home = document.getElementById('home-section');
-      if(home.classList.contains('active')){
-        if(document.getElementById('map').style.display !== 'none'){
-          setTimeout(()=>{ if(map) map.invalidateSize(); }, 300);
-        }
-      }
+// --- Load hazards ---
+async function loadHazards(){
+  const url = `${SUPABASE_URL}/rest/v1/hazards?select=*`;
+  const res = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}});
+  const rows = await res.json();
+  hazardLayer.clearLayers();
+  rows.forEach(r=>{
+    if(r.lat && r.lon){
+      L.circleMarker([r.lat,r.lon],{radius:6,color:"yellow"}).addTo(hazardLayer)
+        .bindPopup(`⚠️ ${r.type}<br>${r.description||""}`);
     }
   });
-});
-observer.observe(document.querySelector('.tabs'), { attributes:true, subtree:true, attributeFilter:['class'] });
+}
 
-// Initialize a small portion: leave maps uninitialized until needed to avoid hidden map size issues
-// But we can init homepage map when user first tries to track a bus
+// --- Submit hazard ---
+document.getElementById("report").onclick = async ()=>{
+  if(!navigator.geolocation) return alert("No GPS available");
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const payload = {
+      type: document.getElementById("hazard-type").value,
+      description: document.getElementById("hazard-desc").value,
+      lat: pos.coords.latitude,
+      lon: pos.coords.longitude,
+      created_at: new Date().toISOString()
+    };
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/hazards`,{
+      method:"POST",
+      headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    if(res.ok){
+      alert("✅ Hazard submitted");
+      document.getElementById("hazard-desc").value="";
+      loadHazards();
+    } else {
+      alert("❌ Error submitting hazard");
+    }
+  });
+};
 
+// Refresh data every 5s
+loadBuses(); loadRoadHealth(); loadHazards();
+setInterval(loadBuses,5000);
+setInterval(loadRoadHealth,10000);
+setInterval(loadHazards,10000);
 </script>
 </body>
 </html>
