@@ -1,315 +1,544 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TheRoadApp – Viewer</title>
+  <title>TheRoadApp - Viewer</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 
   <style>
+    /* ------------------- */
+    /* Global Styles     */
+    /* ------------------- */
     :root {
-      --bg: #111;
-      --fg: #f5f5f5;
-      --accent: #007BFF;
-      --danger: #e63946;
-      --muted: #999;
-      --card-bg: rgba(30, 30, 30, 0.9);
-      --radius: 12px;
-      --transition: 0.3s ease;
+      --primary-color: #007BFF;
+      --primary-hover: #0056b3;
+      --danger-color: #dc3545;
+      --danger-hover: #c82333;
+      --success-color: #28a745;
+      --success-hover: #218838;
+      --secondary-color: #6c757d;
+      --secondary-hover: #5a6268;
+
+      --bg-color: #121212;
+      --surface-color: #1e1e1e;
+      --surface-color-2: #2a2a2a;
+      --border-color: #444;
+      --text-color: #f0f0f0;
+      --text-muted: #aaa;
+
+      --border-radius: 12px;
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 16px;
+      --spacing-lg: 24px;
+      --transition-speed: 0.3s ease;
     }
 
-    * { box-sizing: border-box; }
-    body {
+    * {
+      box-sizing: border-box;
       margin: 0;
+      padding: 0;
+    }
+
+    body {
       font-family: 'Space Grotesk', sans-serif;
-      background: var(--bg);
-      color: var(--fg);
-      line-height: 1.5;
+      background: var(--bg-color);
+      color: var(--text-color);
+      line-height: 1.6;
     }
 
-    h1, h2, h3 {
-      font-weight: 700;
-      margin-bottom: 0.5em;
-      line-height: 1.2;
-    }
-
-    h1 { font-size: clamp(1.5rem, 2vw + 1rem, 2.25rem); }
-    h2 { font-size: clamp(1.25rem, 1.5vw + 0.75rem, 1.75rem); }
-    p, label, input, button { font-size: 1rem; }
-
-    /* Layout */
     .container {
-      max-width: 1100px;
-      margin: auto;
-      padding: 1rem; /* Use 1rem for consistent mobile padding */
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--spacing-lg);
     }
 
-    /* Tabs */
+    h2, h3 {
+      margin-bottom: var(--spacing-md);
+    }
+
+    p {
+      color: var(--text-muted);
+      margin-bottom: var(--spacing-md);
+    }
+
+    /* ------------------- */
+    /* Tabs         */
+    /* ------------------- */
     .tabs {
       display: flex;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      background: #1a1a1a;
-      /* --- RESPONSIVE CHANGE: Allow horizontal scroll on small screens --- */
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
+      background: var(--surface-color);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      margin-bottom: var(--spacing-lg);
     }
+
     .tab {
-      flex: 1 0 auto; /* Allow tabs to have their natural width but grow if space allows */
-      min-width: 120px; /* Ensure tabs are readable */
-      padding: 14px;
+      flex: 1;
+      padding: var(--spacing-md);
       text-align: center;
-      font-weight: 600;
       cursor: pointer;
-      transition: background var(--transition), color var(--transition);
+      font-weight: 600;
+      transition: background var(--transition-speed), color var(--transition-speed);
+      border-bottom: 3px solid transparent;
     }
+
+    .tab:hover {
+      background: var(--surface-color-2);
+    }
+
     .tab.active {
-      background: var(--accent);
-      color: #fff;
+      color: var(--primary-color);
+      border-bottom-color: var(--primary-color);
     }
-    .tab:hover { background: #2a2a2a; }
 
-    .section { display: none; padding: 20px 0; }
-    .section.active { display: block; }
+    .section {
+      display: none;
+    }
 
-    /* Forms */
-    .form-group { margin-bottom: 1rem; }
-    .form-group input, .form-group select, .form-group textarea {
+    .section.active {
+      display: block;
+    }
+
+    /* ------------------- */
+    /* Forms & Buttons   */
+    /* ------------------- */
+    .form-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+    }
+
+    input, select, textarea {
       width: 100%;
       padding: 12px;
-      border-radius: var(--radius);
-      border: 1px solid #444;
-      background: #1e1e1e;
-      color: var(--fg);
+      border-radius: var(--border-radius);
+      border: 1px solid var(--border-color);
+      background: var(--surface-color-2);
+      color: var(--text-color);
+      font-family: inherit;
+      font-size: 1rem;
+      transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+    }
+
+    input:focus, select:focus, textarea:focus {
       outline: none;
-      transition: border var(--transition), background var(--transition);
-    }
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-      border-color: var(--accent);
-      background: #2a2a2a;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
     }
 
-    /* Buttons */
-    button {
-      padding: 12px 16px;
-      border-radius: var(--radius);
+    .btn {
+      padding: 12px 18px;
       border: none;
-      cursor: pointer;
+      border-radius: var(--border-radius);
       font-weight: 600;
-      transition: background var(--transition), transform 0.1s ease;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color var(--transition-speed), transform var(--transition-speed);
     }
-    button:active { transform: scale(0.98); }
-    
-    /* --- RESPONSIVE CHANGE: Define specific button widths --- */
-    #search-bus-btn, #road-health-btn { width: 100%; }
-    #report-hazard-btn { width: 100%; margin-top: 1rem; }
 
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-primary:hover { background: #0056b3; }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .btn-danger:hover { background: #a71d2a; }
-    .btn-secondary { background: #444; color: #fff; }
-    .btn-secondary:hover { background: #666; }
+    .btn:hover {
+      transform: translateY(-2px);
+    }
 
-    /* Bus cards */
-    #bus-results { margin-top: 1.5rem; display: grid; gap: 1rem; }
+    .btn-primary { background: var(--primary-color); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .btn-danger { background: var(--danger-color); color: #fff; }
+    .btn-danger:hover { background: var(--danger-hover); }
+
+    .btn-success { background: var(--success-color); color: #fff; }
+    .btn-success:hover { background: var(--success-hover); }
+
+    .btn-secondary { background: var(--secondary-color); color: #fff; }
+    .btn-secondary:hover { background: var(--secondary-hover); }
+
+    .btn-full-width {
+      width: 100%;
+    }
+
+
+    /* ------------------- */
+    /* Cards        */
+    /* ------------------- */
     .bus-card {
-      background: var(--card-bg);
-      padding: 16px;
-      border-radius: var(--radius);
+      background: var(--surface-color);
+      padding: var(--spacing-md);
+      border-radius: var(--border-radius);
+      margin-top: var(--spacing-md);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border: 1px solid rgba(255,255,255,0.05);
+      gap: var(--spacing-md);
+      border-left: 5px solid var(--primary-color);
     }
 
-    /* Maps */
-    #map, #road-health-map {
-      height: 60vh; /* Adjusted for better balance on mobile */
-      min-height: 400px;
-      border-radius: var(--radius);
-      overflow: hidden;
-      margin-top: 1.5rem;
+    /* ------------------- */
+    /* Map         */
+    /* ------------------- */
+    #map, #road-map {
+      height: 65vh;
+      border-radius: var(--border-radius);
+      margin-top: var(--spacing-lg);
+      background-color: var(--surface-color);
     }
 
-    /* Theme switcher */
-    .theme-switcher {
-      display: grid; /* --- RESPONSIVE CHANGE: Use grid for better alignment --- */
-      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-      gap: 8px;
-      margin-top: 12px;
+    #map {
+      display: none;
     }
-    .theme-btn {
-      text-align: center;
-      background: #1e1e1e;
-      border: 1px solid #333;
-      border-radius: var(--radius);
-      padding: 10px;
-      cursor: pointer;
-      transition: background var(--transition);
+    #map.visible {
+      display: block;
     }
-    .theme-btn:hover { background: #333; }
 
-    /* Modal */
+    /* ------------------- */
+    /* Modal        */
+    /* ------------------- */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
-      display: none;
-      justify-content: center;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
       align-items: center;
-      z-index: 1000;
-      padding: 16px;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity var(--transition-speed), visibility var(--transition-speed);
     }
+
+    .modal-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
     .modal {
-      background: #161616;
-      border-radius: var(--radius);
-      padding: 20px;
-      width: 100%;
-      max-width: 500px;
-      animation: fadeIn 0.3s ease;
+      background: var(--surface-color);
+      padding: var(--spacing-lg);
+      border-radius: var(--border-radius);
+      width: 90%;
+      max-width: 450px;
+      transform: scale(0.95);
+      transition: transform var(--transition-speed);
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
+
+    .modal-overlay.visible .modal {
+      transform: scale(1);
     }
-    .modal h3 { margin-top: 0; margin-bottom: 1rem; }
+
+    .modal-content > * + * {
+        margin-top: var(--spacing-md);
+    }
+
     .modal-actions {
       display: flex;
       justify-content: flex-end;
-      gap: 10px;
-      margin-top: 1rem;
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
     }
 
-    /* =================================== */
-    /* --- RESPONSIVE MEDIA QUERIES --- */
-    /* =================================== */
-
-    /* Small devices (phones, 480px and up) */
-    @media (max-width: 480px) {
-      .modal-actions {
-        /* --- RESPONSIVE CHANGE: Stack modal buttons on small screens --- */
-        flex-direction: column-reverse;
-      }
-      .modal-actions button {
-        width: 100%;
-      }
-    }
-
-    /* Medium devices (tablets, 768px and up) */
-    @media (min-width: 768px) {
+    /* ------------------- */
+    /* Responsive       */
+    /* ------------------- */
+    @media (max-width: 768px) {
       .container {
-        padding: 1.5rem; /* Increase padding on larger screens */
+        padding: var(--spacing-md);
       }
-      .tabs {
-        justify-content: center; /* Center tabs when there's enough space */
-      }
-      .tab {
-        flex-grow: 0; /* Stop tabs from stretching to fill the whole width */
-      }
-      #bus-results {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      /* --- RESPONSIVE CHANGE: Make action buttons auto-width on tablets+ --- */
-      #search-bus-btn, #road-health-btn {
-        width: auto;
-        min-width: 180px;
-      }
-      #map, #road-health-map {
-        height: 70vh; /* Restore larger map height on bigger screens */
-      }
-    }
 
-    /* Large devices (desktops, 1024px and up) */
-    @media (min-width: 1024px) {
-      #bus-results {
-        grid-template-columns: repeat(3, 1fr);
+      .form-group {
+        grid-template-columns: 1fr;
+      }
+
+      .bus-card {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .bus-card .btn {
+        width: 100%;
+        text-align: center;
       }
     }
 
   </style>
 </head>
 <body>
+
+<main class="container">
   <div class="tabs">
-    <div class="tab active" data-target="home-section">Home</div>
-    <div class="tab" data-target="road-health-section">Road Health</div>
+    <div class="tab active" data-target="home">Home</div>
+    <div class="tab" data-target="road">Road Health</div>
   </div>
 
-  <div class="container">
-    <section id="home-section" class="section active">
-      <h1>🚍 TheRoadApp Viewer</h1>
-      <p>Search your bus and track it in real-time with live map updates.</p>
+  <div id="home" class="section active">
+    <h2>🚍 TheRoadApp</h2>
+    <p>Track live bus locations and report road hazards in your area.</p>
 
-      <div class="form-group"><input type="text" id="departure" placeholder="Departure Location"></div>
-      <div class="form-group"><input type="text" id="arrival" placeholder="Arrival Location"></div>
-      <button id="search-bus-btn" class="btn-primary">🔎 Search Buses</button>
-
-      <div id="bus-results"></div>
-      <div id="map" style="display:none;"></div>
-
-      <div class="theme-switcher">
-        <div class="theme-btn" data-theme="osm">OSM</div>
-        <div class="theme-btn" data-theme="sat">Satellite</div>
-        <div class="theme-btn" data-theme="dark">Dark</div>
-        <div class="theme-btn" data-theme="topo">Topographic</div>
-      </div>
-      
-      <button id="report-hazard-btn" class="btn-danger">⚠️ Report Hazard</button>
-    </section>
-
-    <section id="road-health-section" class="section">
-      <h2>🛣️ Road Health</h2>
-      <p>Check real-time road condition before your trip.</p>
-      <div class="form-group"><input type="text" id="road-from" placeholder="Start Location"></div>
-      <div class="form-group"><input type="text" id="road-to" placeholder="Destination"></div>
-      <button id="road-health-btn" class="btn-primary">Check Road Condition</button>
-
-      <div id="road-health-map"></div>
-      <div class="theme-switcher">
-        <div class="theme-btn" data-theme="osm-road">OSM</div>
-        <div class="theme-btn" data-theme="sat-road">Satellite</div>
-        <div class="theme-btn" data-theme="dark-road">Dark</div>
-      </div>
-    </section>
-  </div>
-
-  <div id="modal" class="modal-overlay">
-    <div class="modal" role="dialog" aria-modal="true">
-      <h3>Report Hazard</h3>
-      <div class="form-group">
-        <label for="hazard-type">Hazard Type</label>
-        <select id="hazard-type">
-          <option value="pothole">Pothole</option>
-          <option value="obstruction">Obstruction</option>
-          <option value="water_logging">Water logging</option>
-          <option value="accident">Accident</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="hazard-desc">Description</label>
-        <textarea id="hazard-desc" rows="3"></textarea>
-      </div>
-      <div class="form-group">
-        <label for="hazard-photo">Photo (optional)</label>
-        <input id="hazard-photo" type="file" accept="image/*" capture="environment">
-      </div>
-      <div class="form-group">
-        <label for="hazard-loc">Detected Location</label>
-        <input type="text" id="hazard-loc" readonly>
-      </div>
-      <div class="modal-actions">
-        <button class="btn-secondary" id="cancel-modal">Cancel</button>
-        <button class="btn-primary" id="submit-hazard">Submit</button>
-      </div>
+    <div class="form-group">
+      <input id="from" type="text" placeholder="Departure Location" aria-label="Departure Location">
+      <input id="to" type="text" placeholder="Destination" aria-label="Destination">
+      <button id="search-btn" class="btn btn-primary">Search</button>
     </div>
+
+    <div id="bus-results"></div>
+    <div id="map"></div>
+    <button id="report-btn" class="btn btn-danger btn-full-width" style="margin-top: 24px;">⚠️ Report Hazard</button>
   </div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    // JS same as your working version — attach map, Supabase, hazard reporting logic.
-    // Only structure changed for design, all functionality can be re-used directly.
-  </script>
+  <div id="road" class="section">
+    <h2>🛣️ Road Health</h2>
+    <p>View a color-coded map of road quality based on recent data.</p>
+    <div id="road-map"></div>
+  </div>
+</main>
+
+<div id="modal" class="modal-overlay">
+  <div class="modal">
+    <h3>Report a New Hazard</h3>
+    <form id="hazard-form" onsubmit="return false;">
+        <div class="modal-content">
+          <select id="hz-type" aria-label="Hazard Type">
+            <option value="pothole">Pothole</option>
+            <option value="obstruction">Obstruction</option>
+            <option value="flood">Flooding</option>
+            <option value="accident">Accident</option>
+          </select>
+          <textarea id="hz-desc" placeholder="Describe the hazard..." rows="3" aria-label="Hazard Description"></textarea>
+          <input id="hz-photo" type="file" accept="image/*" capture="environment" aria-label="Upload Photo">
+          <input id="hz-loc" placeholder="Your Location" readonly aria-label="Your Location">
+        </div>
+        <div class="modal-actions">
+          <button id="cancel-hz" class="btn btn-secondary">Cancel</button>
+          <button id="submit-hz" class="btn btn-primary">Submit</button>
+        </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+// --- Supabase Config ---
+// IMPORTANT: Replace with your actual Supabase URL and Anon Key
+const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co";
+const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+// --- DOM Elements ---
+const tabs = document.querySelectorAll(".tab");
+const sections = document.querySelectorAll(".section");
+const homeMapElement = document.getElementById("map");
+const roadMapElement = document.getElementById("road-map");
+const modalOverlay = document.getElementById("modal");
+
+// --- Map Variables ---
+let homeMap, roadMap, busMarkers = {}, roadLayer;
+const busIcon = L.icon({
+    iconUrl: "https://cdn-icons-png.flaticon.com/512/61/61212.png",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
+});
+
+// --- Tab Functionality ---
+tabs.forEach(tab => {
+  tab.addEventListener("click", () => {
+    tabs.forEach(t => t.classList.remove("active"));
+    sections.forEach(s => s.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById(tab.dataset.target).classList.add("active");
+    
+    if (tab.dataset.target === "road") {
+      initRoadMap();
+    }
+  });
+});
+
+// =================================================
+//              BUS TRACKING LOGIC
+// =================================================
+function initHomeMap() {
+  if (homeMap) return;
+  homeMap = L.map(homeMapElement).setView([20.5937, 78.9629], 5); // Centered on India
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(homeMap);
+  loadBuses();
+}
+
+async function loadBuses() {
+  const url = `${SUPABASE_URL}/rest/v1/bus_location?select=*&order=ts.desc&limit=200`;
+  try {
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }});
+    if (!res.ok) throw new Error("Failed to fetch bus data");
+    const rows = await res.json();
+    
+    const latestLocations = {};
+    rows.forEach(r => { if (!latestLocations[r.device_id]) latestLocations[r.device_id] = r; });
+    
+    // Remove markers for buses that are no longer present
+    Object.keys(busMarkers).forEach(id => {
+      if (!latestLocations[id]) {
+        homeMap.removeLayer(busMarkers[id]);
+        delete busMarkers[id];
+      }
+    });
+
+    // Add or update markers
+    Object.values(latestLocations).forEach(r => {
+      if (!r.lat || !r.lon) return;
+      const latLng = [r.lat, r.lon];
+      if (busMarkers[r.device_id]) {
+        busMarkers[r.device_id].setLatLng(latLng);
+      } else {
+        busMarkers[r.device_id] = L.marker(latLng, { icon: busIcon })
+          .addTo(homeMap)
+          .bindPopup(`<b>Bus ID:</b> ${r.device_id}`);
+      }
+    });
+  } catch (error) {
+    console.error("Error loading bus locations:", error);
+  }
+}
+
+// Set an interval to refresh bus locations if the map is active
+setInterval(() => { if (homeMap) loadBuses(); }, 5000);
+
+// Mocked Bus Search
+document.getElementById("search-btn").onclick = () => {
+  const from = document.getElementById("from").value || "City A";
+  const to = document.getElementById("to").value || "City B";
+  const resultsContainer = document.getElementById("bus-results");
+  resultsContainer.innerHTML = "";
+  
+  // Example bus results
+  [{ id: "bus101" }, { id: "bus202" }].forEach(bus => {
+    const card = document.createElement("div");
+    card.className = "bus-card";
+    card.innerHTML = `<span><b>${bus.id}</b>: ${from} → ${to}</span><button data-id="${bus.id}" class="btn btn-success">Track</button>`;
+    resultsContainer.appendChild(card);
+    
+    card.querySelector("button").onclick = () => {
+      homeMapElement.classList.add('visible');
+      initHomeMap();
+      // In a real app, you might pan/zoom to the specific bus here
+    };
+  });
+};
+
+// =================================================
+//              ROAD HEALTH LOGIC
+// =================================================
+function initRoadMap() {
+  if (roadMap) return;
+  roadMap = L.map(roadMapElement).setView([20.5937, 78.9629], 5); // Centered on India
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(roadMap);
+  roadLayer = L.layerGroup().addTo(roadMap);
+  fetchRoadHealth();
+}
+
+async function fetchRoadHealth() {
+  const url = `${SUPABASE_URL}/rest/v1/road_health?select=*`;
+  try {
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }});
+    if (!res.ok) throw new Error("Failed to fetch road health data");
+    const rows = await res.json();
+    
+    roadLayer.clearLayers();
+    rows.forEach(r => {
+      const color = r.score === "bad" ? "red" : r.score === "medium" ? "orange" : "green";
+      L.polyline([[r.lat_start, r.lon_start], [r.lat_end, r.lon_end]], { color, weight: 5, opacity: 0.8 }).addTo(roadLayer);
+    });
+  } catch (error) {
+    console.error("Error fetching road health:", error);
+  }
+}
+
+// =================================================
+//              HAZARD REPORTING LOGIC
+// =================================================
+const reportBtn = document.getElementById("report-btn");
+const cancelBtn = document.getElementById("cancel-hz");
+const submitBtn = document.getElementById("submit-hz");
+const locInput = document.getElementById("hz-loc");
+
+reportBtn.onclick = () => {
+  modalOverlay.classList.add("visible");
+  locInput.value = "Locating...";
+  
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude } = pos.coords;
+      locInput.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      modalOverlay.dataset.lat = latitude;
+      modalOverlay.dataset.lon = longitude;
+    },
+    err => {
+      locInput.value = "Could not get location.";
+      console.error(err);
+    }
+  );
+};
+
+cancelBtn.onclick = () => {
+  modalOverlay.classList.remove("visible");
+};
+
+submitBtn.onclick = async () => {
+  const type = document.getElementById("hz-type").value;
+  const desc = document.getElementById("hz-desc").value;
+  const file = document.getElementById("hz-photo").files[0];
+  const photo = file ? await fileToBase64(file) : null;
+  
+  if (!modalOverlay.dataset.lat || !modalOverlay.dataset.lon) {
+    alert("Location is required to submit a hazard.");
+    return;
+  }
+
+  const payload = {
+    type: type,
+    description: desc,
+    lat: +modalOverlay.dataset.lat,
+    lon: +modalOverlay.dataset.lon,
+    photo_data: photo,
+    created_at: new Date().toISOString()
+  };
+  
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Submitting...";
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/hazards`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: "Bearer " + SUPABASE_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error("Submission failed");
+    
+    alert("Hazard submitted successfully!");
+    modalOverlay.classList.remove("visible");
+    document.getElementById("hazard-form").reset();
+
+  } catch (error) {
+    console.error("Error submitting hazard:", error);
+    alert("There was an error submitting your report.");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Submit";
+  }
+};
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+    reader.readAsDataURL(file);
+  });
+}
+</script>
+
 </body>
 </html>
