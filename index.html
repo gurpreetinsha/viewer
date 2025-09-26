@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TheRoadApp – Viewer</title>
 
-  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <!-- Font -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 
   <style>
@@ -45,7 +43,7 @@
     .container {
       max-width: 1100px;
       margin: auto;
-      padding: 16px;
+      padding: 1rem; /* Use 1rem for consistent mobile padding */
     }
 
     /* Tabs */
@@ -53,9 +51,13 @@
       display: flex;
       border-bottom: 1px solid rgba(255,255,255,0.1);
       background: #1a1a1a;
+      /* --- RESPONSIVE CHANGE: Allow horizontal scroll on small screens --- */
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
     }
     .tab {
-      flex: 1;
+      flex: 1 0 auto; /* Allow tabs to have their natural width but grow if space allows */
+      min-width: 120px; /* Ensure tabs are readable */
       padding: 14px;
       text-align: center;
       font-weight: 600;
@@ -98,6 +100,11 @@
       transition: background var(--transition), transform 0.1s ease;
     }
     button:active { transform: scale(0.98); }
+    
+    /* --- RESPONSIVE CHANGE: Define specific button widths --- */
+    #search-bus-btn, #road-health-btn { width: 100%; }
+    #report-hazard-btn { width: 100%; margin-top: 1rem; }
+
     .btn-primary { background: var(--accent); color: #fff; }
     .btn-primary:hover { background: #0056b3; }
     .btn-danger { background: var(--danger); color: #fff; }
@@ -119,27 +126,21 @@
 
     /* Maps */
     #map, #road-health-map {
-      height: 70vh;
+      height: 60vh; /* Adjusted for better balance on mobile */
+      min-height: 400px;
       border-radius: var(--radius);
       overflow: hidden;
       margin-top: 1.5rem;
     }
 
-    /* Hazard button */
-    #report-hazard-btn {
-      width: 100%;
-      margin-top: 1rem;
-    }
-
     /* Theme switcher */
     .theme-switcher {
-      display: flex;
+      display: grid; /* --- RESPONSIVE CHANGE: Use grid for better alignment --- */
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
       gap: 8px;
       margin-top: 12px;
-      flex-wrap: wrap;
     }
     .theme-btn {
-      flex: 1;
       text-align: center;
       background: #1e1e1e;
       border: 1px solid #333;
@@ -181,24 +182,61 @@
       margin-top: 1rem;
     }
 
-    /* Responsive */
+    /* =================================== */
+    /* --- RESPONSIVE MEDIA QUERIES --- */
+    /* =================================== */
+
+    /* Small devices (phones, 480px and up) */
+    @media (max-width: 480px) {
+      .modal-actions {
+        /* --- RESPONSIVE CHANGE: Stack modal buttons on small screens --- */
+        flex-direction: column-reverse;
+      }
+      .modal-actions button {
+        width: 100%;
+      }
+    }
+
+    /* Medium devices (tablets, 768px and up) */
     @media (min-width: 768px) {
-      #bus-results { grid-template-columns: repeat(2, 1fr); }
+      .container {
+        padding: 1.5rem; /* Increase padding on larger screens */
+      }
+      .tabs {
+        justify-content: center; /* Center tabs when there's enough space */
+      }
+      .tab {
+        flex-grow: 0; /* Stop tabs from stretching to fill the whole width */
+      }
+      #bus-results {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      /* --- RESPONSIVE CHANGE: Make action buttons auto-width on tablets+ --- */
+      #search-bus-btn, #road-health-btn {
+        width: auto;
+        min-width: 180px;
+      }
+      #map, #road-health-map {
+        height: 70vh; /* Restore larger map height on bigger screens */
+      }
     }
+
+    /* Large devices (desktops, 1024px and up) */
     @media (min-width: 1024px) {
-      #bus-results { grid-template-columns: repeat(3, 1fr); }
+      #bus-results {
+        grid-template-columns: repeat(3, 1fr);
+      }
     }
+
   </style>
 </head>
 <body>
-  <!-- Tabs -->
   <div class="tabs">
     <div class="tab active" data-target="home-section">Home</div>
     <div class="tab" data-target="road-health-section">Road Health</div>
   </div>
 
   <div class="container">
-    <!-- Home -->
     <section id="home-section" class="section active">
       <h1>🚍 TheRoadApp Viewer</h1>
       <p>Search your bus and track it in real-time with live map updates.</p>
@@ -208,7 +246,6 @@
       <button id="search-bus-btn" class="btn-primary">🔎 Search Buses</button>
 
       <div id="bus-results"></div>
-      <button id="report-hazard-btn" class="btn-danger">⚠️ Report Hazard</button>
       <div id="map" style="display:none;"></div>
 
       <div class="theme-switcher">
@@ -217,9 +254,10 @@
         <div class="theme-btn" data-theme="dark">Dark</div>
         <div class="theme-btn" data-theme="topo">Topographic</div>
       </div>
+      
+      <button id="report-hazard-btn" class="btn-danger">⚠️ Report Hazard</button>
     </section>
 
-    <!-- Road Health -->
     <section id="road-health-section" class="section">
       <h2>🛣️ Road Health</h2>
       <p>Check real-time road condition before your trip.</p>
@@ -236,12 +274,11 @@
     </section>
   </div>
 
-  <!-- Modal -->
   <div id="modal" class="modal-overlay">
     <div class="modal" role="dialog" aria-modal="true">
       <h3>Report Hazard</h3>
       <div class="form-group">
-        <label>Hazard Type</label>
+        <label for="hazard-type">Hazard Type</label>
         <select id="hazard-type">
           <option value="pothole">Pothole</option>
           <option value="obstruction">Obstruction</option>
@@ -251,15 +288,15 @@
         </select>
       </div>
       <div class="form-group">
-        <label>Description</label>
+        <label for="hazard-desc">Description</label>
         <textarea id="hazard-desc" rows="3"></textarea>
       </div>
       <div class="form-group">
-        <label>Photo (optional)</label>
+        <label for="hazard-photo">Photo (optional)</label>
         <input id="hazard-photo" type="file" accept="image/*" capture="environment">
       </div>
       <div class="form-group">
-        <label>Detected Location</label>
+        <label for="hazard-loc">Detected Location</label>
         <input type="text" id="hazard-loc" readonly>
       </div>
       <div class="modal-actions">
@@ -269,7 +306,6 @@
     </div>
   </div>
 
-  <!-- Scripts -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
     // JS same as your working version — attach map, Supabase, hazard reporting logic.
