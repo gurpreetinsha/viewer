@@ -62,6 +62,7 @@
     
     .btn { padding: 12px 18px; border-radius: 8px; border: none; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all var(--transition-speed); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
     .btn:hover { transform: translateY(-2px); }
+    .btn:disabled { background-color: var(--border-color); cursor: not-allowed; transform: none; }
     .btn-primary { background-color: var(--primary-color); color: var(--text-on-primary); }
     .btn-primary:hover:not(:disabled) { background-color: var(--primary-color-hover); }
     .btn-danger { background-color: var(--danger-color); color: var(--text-on-primary); }
@@ -69,7 +70,6 @@
     .map-wrapper { position: relative; height: 75vh; border-radius: var(--border-radius); overflow: hidden; background-color: var(--surface-color); }
     #map { height: 100%; width: 100%; }
 
-    /* NEW: Custom Map Controls Panel */
     .map-custom-controls { position: absolute; top: var(--spacing-md); right: var(--spacing-md); z-index: 1000; background: rgba(30, 30, 30, 0.9); border: 1px solid var(--border-color); border-radius: var(--border-radius); backdrop-filter: blur(5px); box-shadow: var(--shadow); padding: 8px; display: flex; flex-direction: column; gap: 8px; }
     .control-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px; }
     .control-row label { font-weight: 500; cursor: pointer; user-select: none; }
@@ -78,7 +78,6 @@
     .map-control-btn:hover { background-color: var(--border-color); }
     .map-control-btn svg { width: 18px; height: 18px; }
 
-    /* NEW: Toggle Switch Styles */
     .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; cursor: pointer; inset: 0; background-color: var(--border-color); border-radius: 34px; transition: var(--transition-speed); }
@@ -103,18 +102,18 @@
 
     <section id="home" class="section active">
       <p>Track live bus locations and report road hazards in your area.</p>
-      <form class="search-form" onsubmit="return false;">
+      <form class="search-form" onsubmit="event.preventDefault(); handleSearch();">
         <div class="form-group">
           <label for="from">Departure</label>
-          <input id="from" type="text" placeholder="e.g., Mumbai" autocomplete="off">
+          <input id="from" type="text" placeholder="e.g., Mumbai" autocomplete="off" required>
           <div class="autocomplete-suggestions" id="from-suggestions"></div>
         </div>
         <div class="form-group">
           <label for="to">Destination</label>
-          <input id="to" type="text" placeholder="e.g., Delhi" autocomplete="off">
+          <input id="to" type="text" placeholder="e.g., Delhi" autocomplete="off" required>
           <div class="autocomplete-suggestions" id="to-suggestions"></div>
         </div>
-        <button id="search-btn" class="btn btn-primary">Search</button>
+        <button id="search-btn" class="btn btn-primary" type="submit">Search</button>
       </form>
       <div id="bus-results"></div>
       <button id="report-btn" class="btn btn-danger" style="margin-top:18px;width:100%">⚠️ Report Hazard</button>
@@ -159,15 +158,50 @@
     let roadHealthLayer = L.layerGroup();
     let mapInitialized = false;
     let busMarkers = {}; // Store markers by bus ID
+    let busUpdateInterval = null; // To hold the setInterval ID
 
-    // UPDATED: New bus icon
     const busIcon = L.icon({
       iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/97/GO_bus_symbol.svg',
       iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -20]
     });
 
-    // NEW: List of Indian cities for autocomplete
-    const indianCities = ["Mumbai", "Delhi", "Bengaluru", "Kolkata", "Chennai", "Hyderabad", "Pune", "Ahmedabad", "Surat", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane", "Bhopal", "Visakhapatnam", "Patna", "Vadodara", "Ghaziabad", "Ludhiana", "Agra", "Nashik", "Faridabad", "Meerut", "Rajkot", "Varanasi", "Srinagar", "Aurangabad", "Dhanbad", "Amritsar", "Allahabad", "Ranchi", "Howrah", "Coimbatore", "Jabalpur", "Gwalior", "Vijayawada", "Jodhpur", "Madurai", "Raipur", "Kota", "Guwahati", "Chandigarh", "Muzaffarnagar"];
+    // --- MOCK DATA REMOVED ---
+    // The indianCities array has been removed. Data will be fetched from an API.
+
+    // ==========================================================================
+    // API & HELPERS
+    // ==========================================================================
+    /**
+     * --- NEW: API Fetch Helper ---
+     * A centralized function for making API calls.
+     * @param {string} url - The API endpoint to call.
+     * @param {object} options - Fetch options (e.g., method, headers, body).
+     * @returns {Promise<any>} - The JSON response from the server.
+     */
+    async function apiFetch(url, options = {}) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("API Fetch Error: ", error);
+            throw error; // Re-throw the error to be handled by the caller
+        }
+    }
+
+    /**
+     * --- NEW: Debounce Helper ---
+     * Prevents a function from being called too frequently.
+     */
+    function debounce(func, delay) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
 
     // ==========================================================================
     // INITIALIZATION & EVENT LISTENERS
@@ -175,13 +209,17 @@
     document.addEventListener('DOMContentLoaded', () => {
       // Setup main event listeners
       document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => handleTabSwitch(tab.dataset.target)));
-      document.getElementById('search-btn').addEventListener('click', handleSearch);
+      // Note: Search button now has type="submit" and is handled by the form's onsubmit event.
+      document.getElementById('report-btn').addEventListener('click', handleReportHazard);
       
-      // Setup autocomplete listeners
+      // --- REFACTORED: Setup autocomplete listeners with debouncing ---
       const fromInput = document.getElementById('from');
       const toInput = document.getElementById('to');
-      fromInput.addEventListener('input', () => showSuggestions(fromInput, document.getElementById('from-suggestions')));
-      toInput.addEventListener('input', () => showSuggestions(toInput, document.getElementById('to-suggestions')));
+      const debouncedShowSuggestions = debounce(showSuggestions, 300); // 300ms delay
+
+      fromInput.addEventListener('input', () => debouncedShowSuggestions(fromInput, document.getElementById('from-suggestions')));
+      toInput.addEventListener('input', () => debouncedShowSuggestions(toInput, document.getElementById('to-suggestions')));
+
       document.addEventListener('click', (e) => { // Hide suggestions when clicking away
         if (!e.target.closest('.form-group')) {
           hideSuggestions(document.getElementById('from-suggestions'));
@@ -214,65 +252,121 @@
       }
     }
 
-    // UPDATED: Realistic bus data
+    /**
+     * --- REFACTORED: Fetches bus search results from the backend ---
+     */
     async function handleSearch() {
-      const from = document.getElementById('from').value.trim() || 'Origin';
-      const to = document.getElementById('to').value.trim() || 'Destination';
+      const from = document.getElementById('from').value.trim();
+      const to = document.getElementById('to').value.trim();
+      if (!from || !to) {
+        alert("Please enter both departure and destination.");
+        return;
+      }
+
       const resultsDiv = document.getElementById('bus-results');
+      const searchBtn = document.getElementById('search-btn');
       resultsDiv.innerHTML = '<p>Searching for buses...</p>';
-      
-      await new Promise(resolve => setTimeout(resolve, 500)); // Mock API delay
-      
-      resultsDiv.innerHTML = '';
-      const exampleBuses = [
-          { id: 'MH01-1234', name: 'Shivneri Express', type: 'AC Sleeper' },
-          { id: 'DL05-5678', name: 'Garuda Roadways', type: 'Volvo Semi-Sleeper' },
-          { id: 'UP15-9012', name: 'Yatra Deluxe', type: 'Non-AC Seater' }
-      ];
-      
-      exampleBuses.forEach(bus => {
-        const card = document.createElement('div');
-        card.className = 'bus-card';
-        card.innerHTML = `
-          <div>
-            <span style="font-size: 1.1rem;"><b>${bus.name}</b> (${bus.type})</span>
-            <p style="color:var(--text-muted); font-size: 0.9rem;">${from} → ${to}</p>
-          </div>
-          <button class="btn btn-primary track-btn" data-bus-id="${bus.id}">Track</button>`;
-        card.querySelector('.track-btn').addEventListener('click', (e) => {
-          handleTabSwitch('map-section', { focusOnBusId: e.currentTarget.dataset.busId });
+      searchBtn.disabled = true;
+
+      try {
+        const buses = await apiFetch(`/api/search-buses?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+        
+        resultsDiv.innerHTML = '';
+        if (buses.length === 0) {
+            resultsDiv.innerHTML = `<p>No buses found for the route ${from} → ${to}.</p>`;
+            return;
+        }
+
+        buses.forEach(bus => {
+          const card = document.createElement('div');
+          card.className = 'bus-card';
+          card.innerHTML = `
+            <div>
+              <span style="font-size: 1.1rem;"><b>${bus.name}</b> (${bus.type})</span>
+              <p style="color:var(--text-muted); font-size: 0.9rem;">${from} → ${to}</p>
+            </div>
+            <button class="btn btn-primary track-btn" data-bus-id="${bus.id}">Track</button>`;
+          card.querySelector('.track-btn').addEventListener('click', (e) => {
+            handleTabSwitch('map-section', { focusOnBusId: e.currentTarget.dataset.busId });
+          });
+          resultsDiv.appendChild(card);
         });
-        resultsDiv.appendChild(card);
-      });
+      } catch (error) {
+        resultsDiv.innerHTML = `<p style="color: var(--danger-color);">Failed to fetch bus data. Please try again later.</p>`;
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    /**
+     * --- NEW: Handles the hazard report submission ---
+     */
+    async function handleReportHazard() {
+        // In a real app, you'd use navigator.geolocation to get coordinates
+        // and a modal form for better UX. This is a simplified example.
+        const hazardType = prompt("Enter hazard type (e.g., Pothole, Accident, Roadblock):");
+        if (!hazardType) return;
+
+        const description = prompt("Enter a brief description:");
+
+        // Placeholder coordinates (e.g., center of India)
+        const mockLocation = { lat: 22.5937, lon: 78.9629 };
+
+        try {
+            const response = await apiFetch('/api/report-hazard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    latitude: mockLocation.lat,
+                    longitude: mockLocation.lon,
+                    type: hazardType,
+                    description: description
+                })
+            });
+            alert(response.message || "Hazard reported successfully!");
+        } catch (error) {
+            alert("Failed to report hazard. Please check your connection.");
+        }
     }
 
     // ==========================================================================
     // AUTOCOMPLETE FUNCTIONALITY
     // ==========================================================================
-    function showSuggestions(inputEl, suggestionEl) {
+    /**
+     * --- REFACTORED: Fetches suggestions from the backend ---
+     */
+    async function showSuggestions(inputEl, suggestionEl) {
         const query = inputEl.value.toLowerCase();
-        suggestionEl.innerHTML = '';
-        if (query.length === 0) {
-            suggestionEl.style.display = 'none';
+        if (query.length < 2) { // Start searching after 2 characters
+            hideSuggestions(suggestionEl);
             return;
         }
-        const filteredCities = indianCities.filter(city => city.toLowerCase().startsWith(query)).slice(0, 5);
-        if (filteredCities.length > 0) {
-            filteredCities.forEach(city => {
-                const item = document.createElement('div');
-                item.className = 'suggestion-item';
-                item.textContent = city;
-                item.addEventListener('click', () => {
-                    inputEl.value = city;
-                    hideSuggestions(suggestionEl);
+
+        try {
+            const filteredCities = await apiFetch(`/api/cities?query=${encodeURIComponent(query)}`);
+            suggestionEl.innerHTML = '';
+
+            if (filteredCities.length > 0) {
+                filteredCities.forEach(city => {
+                    const item = document.createElement('div');
+                    item.className = 'suggestion-item';
+                    item.textContent = city;
+                    item.addEventListener('click', () => {
+                        inputEl.value = city;
+                        hideSuggestions(suggestionEl);
+                    });
+                    suggestionEl.appendChild(item);
                 });
-                suggestionEl.appendChild(item);
-            });
-            suggestionEl.style.display = 'block';
-        } else {
+                suggestionEl.style.display = 'block';
+            } else {
+                hideSuggestions(suggestionEl);
+            }
+        } catch (error) {
+            console.error("Could not fetch city suggestions.", error);
             hideSuggestions(suggestionEl);
         }
     }
+
     function hideSuggestions(suggestionEl) {
         suggestionEl.style.display = 'none';
         suggestionEl.innerHTML = '';
@@ -291,13 +385,14 @@
       map = L.map('map', { center: [22.5937, 78.9629], zoom: 5, layers: [baseLayers.dark], zoomControl: false });
       L.control.zoom({ position: 'bottomright' }).addTo(map);
       
-      // Add initial layers
       busLayer.addTo(map);
       roadHealthLayer.addTo(map);
       
-      // Load data and set up new custom controls
-      loadBuses();
-      // fetchRoadHealth(); // You can uncomment this if you have the road_health table
+      // --- REFACTORED: Load initial bus data and set up live updates ---
+      updateBusLocations(); // Initial load
+      busUpdateInterval = setInterval(updateBusLocations, 15000); // Update every 15 seconds
+
+      // fetchRoadHealth(); // You can implement this similarly to updateBusLocations
       setupMapEventListeners();
     }
     
@@ -309,7 +404,7 @@
     
     function recenterMap() { map?.flyTo([22.5937, 78.9629], 5); }
     function toggleFullScreen() {
-      const mapWrapper = document.getElementById('map-wrapper');
+      const mapWrapper = document.querySelector('.map-wrapper');
       if (!document.fullscreenElement) mapWrapper.requestFullscreen?.();
       else document.exitFullscreen?.();
     }
@@ -320,30 +415,44 @@
 
     function focusOnBus(busId) {
       if (!map || !busMarkers[busId]) {
-        console.warn(`Bus ${busId} not found.`);
+        console.warn(`Bus ${busId} not found on the map. It might not be active.`);
+        // Optional: Show an alert to the user
+        alert(`Location for bus ${busId} is not currently available.`);
         return;
       }
       map.flyTo(busMarkers[busId].getLatLng(), 15);
       busMarkers[busId].openPopup();
     }
 
-    // MOCK function for loading buses - replace with your API call
-    async function loadBuses(){
-        if(!busLayer) return;
-        const mockBusData = [
-            { device_id: 'MH01-1234', lat: 19.0760, lon: 72.8777, ts: new Date().toISOString() },
-            { device_id: 'DL05-5678', lat: 28.6139, lon: 77.2090, ts: new Date().toISOString() },
-            { device_id: 'UP15-9012', lat: 26.4499, lon: 80.3319, ts: new Date().toISOString() }
-        ];
+    /**
+     * --- REFACTORED: Fetches live bus locations and updates the map ---
+     */
+    async function updateBusLocations(){
+        if(!busLayer || !map) return;
 
-        busLayer.clearLayers();
-        busMarkers = {};
-        mockBusData.forEach(r => {
-            const marker = L.marker([r.lat, r.lon], { icon: busIcon })
-              .bindPopup(`<b>Bus ID:</b> ${r.device_id}<br><b>Updated:</b> ${new Date(r.ts).toLocaleTimeString()}`);
-            busLayer.addLayer(marker);
-            busMarkers[r.device_id] = marker;
-        });
+        try {
+            const liveBusData = await apiFetch('/api/live-buses');
+
+            // --- Efficiently update markers ---
+            liveBusData.forEach(bus => {
+                const marker = busMarkers[bus.device_id];
+                const latLng = [bus.lat, bus.lon];
+                const popupContent = `<b>Bus ID:</b> ${bus.device_id}<br><b>Updated:</b> ${new Date(bus.ts).toLocaleTimeString()}`;
+
+                if (marker) { // If marker already exists, just move it
+                    marker.setLatLng(latLng);
+                    marker.setPopupContent(popupContent);
+                } else { // Otherwise, create a new one
+                    const newMarker = L.marker(latLng, { icon: busIcon }).bindPopup(popupContent);
+                    busLayer.addLayer(newMarker);
+                    busMarkers[bus.device_id] = newMarker;
+                }
+            });
+
+        } catch (error) {
+            console.error("Failed to update bus locations.", error);
+            // Optionally, show a non-intrusive error message to the user
+        }
     }
   </script>
 </body>
