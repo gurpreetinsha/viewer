@@ -22,32 +22,40 @@
       --spacing-md: 16px; --border-radius: 12px; --transition-speed: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       --shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
     }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.6; }
+
+    body {
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-color); color: var(--text-color); line-height: 1.6;
+    }
     
-    /* Hide non-map elements in Zen Mode */
     body.zen-mode .main-header,
-    body.zen-mode .tabs-nav { display: none; }
+    body.zen-mode .tabs-nav,
+    body.zen-mode .map-custom-controls { display: none; }
     body.zen-mode .map-wrapper { position: fixed; inset: 0; height: 100vh; width: 100vw; border-radius: 0; z-index: 5000; }
 
     /* ==========================================================================
        2. Layout & Components
        ========================================================================== */
     .container { max-width: 1200px; margin: 0 auto; padding: var(--spacing-md); }
-    .main-header h2 { font-size: 1.75rem; margin-bottom: var(--spacing-md); }
+    .main-header h2 { font-size: 1.75rem; font-weight: 700; margin-bottom: var(--spacing-md); }
+
     .tabs-nav { display: flex; background-color: var(--surface-color); border-radius: var(--border-radius); padding: 4px; margin-bottom: 24px; }
     .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; font-weight: 500; border-radius: 8px; color: var(--text-muted); transition: all var(--transition-speed); }
     .tab:hover { background-color: var(--surface-color-2); color: var(--text-color); }
     .tab.active { background-color: var(--primary-color); color: var(--text-on-primary); font-weight: 700; box-shadow: var(--shadow); }
+
     .section { display: none; }
     .section.active { display: block; animation: fadeIn 0.5s var(--transition-speed); }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     
     .form-group { position: relative; display: flex; flex-direction: column; gap: 8px; }
     .search-form { display: flex; flex-direction: column; gap: var(--spacing-md); margin-bottom: 24px; }
-    input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-color-2); color: var(--text-color); font-family: inherit; font-size: 1rem; transition: all var(--transition-speed); }
-    input:focus, select:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3); }
-    
+
+    input, select, textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-color-2); color: var(--text-color); font-family: inherit; font-size: 1rem; transition: all var(--transition-speed); }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3); }
+
     .autocomplete-suggestions { position: absolute; top: 100%; left: 0; right: 0; background-color: var(--surface-color-2); border: 1px solid var(--border-color); border-radius: 0 0 8px 8px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
     .suggestion-item { padding: 10px 12px; cursor: pointer; }
     .suggestion-item:hover { background-color: var(--primary-color); color: var(--text-on-primary); }
@@ -57,40 +65,37 @@
     .btn-primary { background-color: var(--primary-color); color: var(--text-on-primary); }
     .btn-primary:hover:not(:disabled) { background-color: var(--primary-color-hover); }
     .btn-danger { background-color: var(--danger-color); color: var(--text-on-primary); }
-    
+
     .map-wrapper { position: relative; height: 75vh; border-radius: var(--border-radius); overflow: hidden; background-color: var(--surface-color); }
-    #map { height: 100%; width: 100%; background-color: var(--surface-color); }
-    
-    .map-custom-controls { position: absolute; top: var(--spacing-md); right: var(--spacing-md); z-index: 1000; background: rgba(30, 30, 30, 0.9); border: 1px solid var(--border-color); border-radius: var(--border-radius); backdrop-filter: blur(5px); box-shadow: var(--shadow); padding: 8px; display: flex; flex-direction: column; gap: 8px; transition: all var(--transition-speed); }
+    #map { height: 100%; width: 100%; }
+
+    /* NEW: Custom Map Controls Panel */
+    .map-custom-controls { position: absolute; top: var(--spacing-md); right: var(--spacing-md); z-index: 1000; background: rgba(30, 30, 30, 0.9); border: 1px solid var(--border-color); border-radius: var(--border-radius); backdrop-filter: blur(5px); box-shadow: var(--shadow); padding: 8px; display: flex; flex-direction: column; gap: 8px; }
     .control-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px; }
+    .control-row label { font-weight: 500; cursor: pointer; user-select: none; }
     .control-buttons { display: flex; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 8px; }
     .map-control-btn { background: var(--surface-color-2); border: 1px solid var(--border-color); color: var(--text-color); width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; transition: background-color var(--transition-speed); flex: 1; }
     .map-control-btn:hover { background-color: var(--border-color); }
     .map-control-btn svg { width: 18px; height: 18px; }
-    
+
+    /* NEW: Toggle Switch Styles */
     .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; cursor: pointer; inset: 0; background-color: var(--border-color); border-radius: 34px; transition: var(--transition-speed); }
     .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: var(--transition-speed); }
     input:checked + .slider { background-color: var(--primary-color); }
     input:checked + .slider:before { transform: translateX(20px); }
-    
+
     .bus-card { background: var(--surface-color); padding: var(--spacing-md); border-radius: var(--border-radius); margin-top: var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); border-left: 5px solid var(--primary-color); box-shadow: var(--shadow); transition: all var(--transition-speed); }
     .bus-card:hover { transform: translateY(-4px); box-shadow: 0 8px 12px rgba(0, 0, 0, 0.3); }
-
-    /* Styles for Zen Mode UI: Hide controls except the Zen Mode button itself */
-    .map-custom-controls.zen-active { padding: 0; background: transparent; border: none; backdrop-filter: none; box-shadow: none; }
-    .map-custom-controls.zen-active .control-row,
-    .map-custom-controls.zen-active .control-buttons { display: none; }
-    .map-custom-controls.zen-active #zen-mode-btn { display: grid; background: rgba(30, 30, 30, 0.9); border: 1px solid var(--border-color); }
-
-    /* Responsive adjustments */
+    
     @media (min-width: 768px) {
       .search-form { display: grid; grid-template-columns: 1fr 1fr auto; align-items: flex-end; }
       .bus-card { flex-direction: row; justify-content: space-between; align-items: center; }
     }
   </style>
 </head>
+
 <body>
   <main class="container">
     <header class="main-header"><h2>🚍 TheRoadApp</h2></header>
@@ -118,7 +123,7 @@
     <section id="map-section" class="section">
       <div class="map-wrapper">
         <div id="map"></div>
-        <div id="map-controls" class="map-custom-controls">
+        <div class="map-custom-controls">
           <div class="control-row">
               <label for="bus-toggle">Live Buses</label>
               <label class="toggle-switch"> <input type="checkbox" id="bus-toggle" checked> <span class="slider"></span> </label>
@@ -141,7 +146,8 @@
         </div>
       </div>
     </section>
-  </main>
+
+    </main>
   
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
@@ -152,32 +158,31 @@
     let busLayer = L.layerGroup();
     let roadHealthLayer = L.layerGroup();
     let mapInitialized = false;
-    let busMarkers = {};
+    let busMarkers = {}; // Store markers by bus ID
 
+    // UPDATED: New bus icon
     const busIcon = L.icon({
       iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/97/GO_bus_symbol.svg',
-      iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -18]
+      iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -20]
     });
-    
-    // Data for city autocomplete suggestions
+
+    // NEW: List of Indian cities for autocomplete
     const indianCities = ["Mumbai", "Delhi", "Bengaluru", "Kolkata", "Chennai", "Hyderabad", "Pune", "Ahmedabad", "Surat", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane", "Bhopal", "Visakhapatnam", "Patna", "Vadodara", "Ghaziabad", "Ludhiana", "Agra", "Nashik", "Faridabad", "Meerut", "Rajkot", "Varanasi", "Srinagar", "Aurangabad", "Dhanbad", "Amritsar", "Allahabad", "Ranchi", "Howrah", "Coimbatore", "Jabalpur", "Gwalior", "Vijayawada", "Jodhpur", "Madurai", "Raipur", "Kota", "Guwahati", "Chandigarh", "Muzaffarnagar"];
 
     // ==========================================================================
     // INITIALIZATION & EVENT LISTENERS
     // ==========================================================================
     document.addEventListener('DOMContentLoaded', () => {
-      // Main UI listeners
+      // Setup main event listeners
       document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => handleTabSwitch(tab.dataset.target)));
       document.getElementById('search-btn').addEventListener('click', handleSearch);
       
-      // Autocomplete listeners
+      // Setup autocomplete listeners
       const fromInput = document.getElementById('from');
       const toInput = document.getElementById('to');
       fromInput.addEventListener('input', () => showSuggestions(fromInput, document.getElementById('from-suggestions')));
       toInput.addEventListener('input', () => showSuggestions(toInput, document.getElementById('to-suggestions')));
-      
-      // Global click listener to hide suggestions when clicking away
-      document.addEventListener('click', (e) => {
+      document.addEventListener('click', (e) => { // Hide suggestions when clicking away
         if (!e.target.closest('.form-group')) {
           hideSuggestions(document.getElementById('from-suggestions'));
           hideSuggestions(document.getElementById('to-suggestions'));
@@ -185,7 +190,6 @@
       });
     });
 
-    // Sets up listeners for the custom map controls after the map is initialized
     function setupMapEventListeners() {
         document.getElementById('bus-toggle').addEventListener('change', (e) => toggleMapLayer(busLayer, e.target.checked));
         document.getElementById('road-toggle').addEventListener('change', (e) => toggleMapLayer(roadHealthLayer, e.target.checked));
@@ -197,8 +201,6 @@
     // ==========================================================================
     // UI & NAVIGATION
     // ==========================================================================
-    
-    // Handles switching between the Home and Map tabs
     function handleTabSwitch(targetId, options = {}) {
       document.querySelector('.tab.active')?.classList.remove('active');
       document.querySelector('.section.active')?.classList.remove('active');
@@ -207,14 +209,12 @@
 
       if (targetId === 'map-section') {
         if (!mapInitialized) initMap();
-        else setTimeout(() => map?.invalidateSize(), 250); // Ensure map resizes correctly
-        
-        // If a bus was clicked, focus on it
+        else setTimeout(() => map?.invalidateSize(), 250);
         if (options.focusOnBusId) setTimeout(() => focusOnBus(options.focusOnBusId), 500);
       }
     }
 
-    // Handles the search button click with mock data
+    // UPDATED: Realistic bus data
     async function handleSearch() {
       const from = document.getElementById('from').value.trim() || 'Origin';
       const to = document.getElementById('to').value.trim() || 'Destination';
@@ -230,38 +230,33 @@
           { id: 'UP15-9012', name: 'Yatra Deluxe', type: 'Non-AC Seater' }
       ];
       
-      if(exampleBuses.length === 0) {
-        resultsDiv.innerHTML = '<p>No buses found for this route.</p>';
-      } else {
-        exampleBuses.forEach(bus => {
-          const card = document.createElement('div');
-          card.className = 'bus-card';
-          card.innerHTML = `
-            <div>
-              <span style="font-size: 1.1rem;"><b>${bus.name}</b> (${bus.type})</span>
-              <p style="color:var(--text-muted); font-size: 0.9rem;">${from} → ${to}</p>
-            </div>
-            <button class="btn btn-primary track-btn" data-bus-id="${bus.id}">Track</button>`;
-          card.querySelector('.track-btn').addEventListener('click', (e) => {
-            handleTabSwitch('map-section', { focusOnBusId: e.currentTarget.dataset.busId });
-          });
-          resultsDiv.appendChild(card);
+      exampleBuses.forEach(bus => {
+        const card = document.createElement('div');
+        card.className = 'bus-card';
+        card.innerHTML = `
+          <div>
+            <span style="font-size: 1.1rem;"><b>${bus.name}</b> (${bus.type})</span>
+            <p style="color:var(--text-muted); font-size: 0.9rem;">${from} → ${to}</p>
+          </div>
+          <button class="btn btn-primary track-btn" data-bus-id="${bus.id}">Track</button>`;
+        card.querySelector('.track-btn').addEventListener('click', (e) => {
+          handleTabSwitch('map-section', { focusOnBusId: e.currentTarget.dataset.busId });
         });
-      }
+        resultsDiv.appendChild(card);
+      });
     }
 
     // ==========================================================================
     // AUTOCOMPLETE FUNCTIONALITY
     // ==========================================================================
-    
-    // Filters and displays city suggestions based on user input
     function showSuggestions(inputEl, suggestionEl) {
         const query = inputEl.value.toLowerCase();
         suggestionEl.innerHTML = '';
-        if (query.length === 0) { suggestionEl.style.display = 'none'; return; }
-        
+        if (query.length === 0) {
+            suggestionEl.style.display = 'none';
+            return;
+        }
         const filteredCities = indianCities.filter(city => city.toLowerCase().startsWith(query)).slice(0, 5);
-        
         if (filteredCities.length > 0) {
             filteredCities.forEach(city => {
                 const item = document.createElement('div');
@@ -278,8 +273,6 @@
             hideSuggestions(suggestionEl);
         }
     }
-
-    // Hides the suggestions dropdown
     function hideSuggestions(suggestionEl) {
         suggestionEl.style.display = 'none';
         suggestionEl.innerHTML = '';
@@ -288,57 +281,43 @@
     // ==========================================================================
     // MAP FUNCTIONALITY
     // ==========================================================================
-    
-    // Initializes the Leaflet map, layers, and controls
+    const baseLayers = {
+      dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }),
+    };
+
     function initMap() {
       if (mapInitialized) return;
       mapInitialized = true;
-      map = L.map('map', { 
-          center: [22.5937, 78.9629], // Center of India
-          zoom: 5, 
-          layers: [L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' })], 
-          zoomControl: false 
-      });
+      map = L.map('map', { center: [22.5937, 78.9629], zoom: 5, layers: [baseLayers.dark], zoomControl: false });
       L.control.zoom({ position: 'bottomright' }).addTo(map);
       
-      // Add layers to map
+      // Add initial layers
       busLayer.addTo(map);
       roadHealthLayer.addTo(map);
       
-      // Load initial data and set up controls
+      // Load data and set up new custom controls
       loadBuses();
-      fetchRoadHealth();
+      // fetchRoadHealth(); // You can uncomment this if you have the road_health table
       setupMapEventListeners();
     }
-
-    // Toggles a map layer (bus or road health) on or off
+    
     function toggleMapLayer(layer, show) {
         if (!map) return;
         if (show) map.addLayer(layer);
         else map.removeLayer(layer);
     }
     
-    // Pans the map back to the initial view
     function recenterMap() { map?.flyTo([22.5937, 78.9629], 5); }
-
-    // Toggles fullscreen mode for the map
     function toggleFullScreen() {
       const mapWrapper = document.getElementById('map-wrapper');
       if (!document.fullscreenElement) mapWrapper.requestFullscreen?.();
       else document.exitFullscreen?.();
     }
-
-    // Toggles Zen Mode, hiding UI elements for an immersive map view
     function toggleZenMode() {
-      // Toggle a class on the body to hide main UI elements
       document.body.classList.toggle('zen-mode');
-      // Toggle a class on the controls to hide its contents
-      document.getElementById('map-controls').classList.toggle('zen-active');
-      // Invalidate map size after a short delay to ensure proper rendering
-      setTimeout(() => map?.invalidateSize(), 50);
+      setTimeout(() => map?.invalidateSize(), 300);
     }
 
-    // Zooms the map to a specific bus and opens its popup
     function focusOnBus(busId) {
       if (!map || !busMarkers[busId]) {
         console.warn(`Bus ${busId} not found.`);
@@ -348,11 +327,7 @@
       busMarkers[busId].openPopup();
     }
 
-    // ==========================================================================
-    // MOCK DATA FUNCTIONS
-    // ==========================================================================
-    
-    // Loads mock bus data onto the map
+    // MOCK function for loading buses - replace with your API call
     async function loadBuses(){
         if(!busLayer) return;
         const mockBusData = [
@@ -368,22 +343,6 @@
               .bindPopup(`<b>Bus ID:</b> ${r.device_id}<br><b>Updated:</b> ${new Date(r.ts).toLocaleTimeString()}`);
             busLayer.addLayer(marker);
             busMarkers[r.device_id] = marker;
-        });
-    }
-
-    // Loads mock road health data onto the map
-    async function fetchRoadHealth() {
-        if (!roadHealthLayer) return;
-        const mockHealthData = [
-            { lat_start: 28.7041, lon_start: 77.1025, lat_end: 28.6139, lon_end: 77.2090, score: 'bad' }, // Delhi area
-            { lat_start: 19.0760, lon_start: 72.8777, lat_end: 19.2288, lon_end: 72.8540, score: 'good' }, // Mumbai area
-            { lat_start: 29.4736, lon_start: 77.7068, lat_end: 29.4950, lon_end: 77.6800, score: 'medium' }  // Muzaffarnagar area
-        ];
-
-        roadHealthLayer.clearLayers();
-        mockHealthData.forEach(r => {
-            const color = (r.score === 'bad') ? '#dc3545' : (r.score === 'medium') ? '#ffc107' : '#28a745';
-            L.polyline([[r.lat_start, r.lon_start], [r.lat_end, r.lon_end]], { color, weight: 5, opacity: 0.8 }).addTo(roadHealthLayer);
         });
     }
   </script>
