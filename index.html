@@ -411,18 +411,21 @@
         // =================================================================
 
         const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co";
+        // (kept the anon/public key from your original file so API calls work)
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuamhrbWx2Zm15bnh5anlweWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTA4MjMsImV4cCI6MjA3MzgyNjgyM30.Xp1Y3UvqQhbuxP3KV_1dtW8Zff-yy0fA94G5O3wecOo";
         const BUS_REFRESH_INTERVAL = 10000; // 10 seconds
 
-        let map, busLayer, roadHealthLayer;
+        let map = null, busLayer = null, roadHealthLayer = null;
         let mapInitialized = false;
+        let refreshIntervalId = null;
 
+        // Bus icon (explicitly used for bus markers)
         const busIcon = L.icon({
             iconUrl: "https://cdn-icons-png.flaticon.com/512/61/61212.png",
-            iconSize: [32, 32],
-            iconAnchor: [16, 16]
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+            popupAnchor: [0, -18]
         });
-
 
         // =================================================================
         //  DOM ELEMENTS
@@ -448,11 +451,10 @@
             hzLoc: document.getElementById("hz-loc"),
         };
 
-
         // =================================================================
         //  INITIALIZATION & EVENT LISTENERS
         // =================================================================
-        
+
         document.addEventListener('DOMContentLoaded', () => {
             setupEventListeners();
         });
@@ -464,61 +466,63 @@
             });
 
             // Home section
-            UI.searchBtn.addEventListener("click", handleSearch);
-            UI.reportBtn.addEventListener("click", openHazardModal);
+            if (UI.searchBtn) UI.searchBtn.addEventListener("click", (e) => { e.preventDefault(); handleSearch(); });
+            if (UI.reportBtn) UI.reportBtn.addEventListener("click", openHazardModal);
 
             // Map controls
-            UI.fullscreenBtn.addEventListener("click", toggleFullScreen);
-            UI.zenModeBtn.addEventListener("click", toggleZenMode);
-            
-            // Modal controls
-            UI.cancelHzBtn.addEventListener("click", closeHazardModal);
-            UI.hazardForm.addEventListener("submit", handleHazardSubmit);
-        }
+            if (UI.fullscreenBtn) UI.fullscreenBtn.addEventListener("click", toggleFullScreen);
+            if (UI.zenModeBtn) UI.zenModeBtn.addEventListener("click", toggleZenMode);
 
+            // Modal controls
+            if (UI.cancelHzBtn) UI.cancelHzBtn.addEventListener("click", closeHazardModal);
+            if (UI.hazardForm) UI.hazardForm.addEventListener("submit", (e) => { e.preventDefault(); handleHazardSubmit(); });
+        }
 
         // =================================================================
         //  UI HANDLERS
         // =================================================================
 
         function handleTabSwitch(clickedTab) {
-            document.querySelector(".tab.active").classList.remove("active");
-            document.querySelector(".section.active").classList.remove("active");
-            
+            const activeTab = document.querySelector(".tab.active");
+            const activeSection = document.querySelector(".section.active");
+            if (activeTab) activeTab.classList.remove("active");
+            if (activeSection) activeSection.classList.remove("active");
+
             clickedTab.classList.add("active");
-            document.getElementById(clickedTab.dataset.target).classList.add("active");
-            
-            if (clickedTab.dataset.target === "map-section" && !mapInitialized) {
+            const targetId = clickedTab.dataset.target;
+            const targetSection = document.getElementById(targetId);
+            if (targetSection) targetSection.classList.add("active");
+
+            if (targetId === "map-section" && !mapInitialized) {
                 initMap();
+            } else if (targetId === "map-section" && map) {
+                // If map already initialized, ensure it redraws correctly
+                setTimeout(() => { try { map.invalidateSize(); } catch (e) { } }, 200);
             }
         }
-        
-        /**
-         * Placeholder for bus search functionality.
-         */
+
         function handleSearch() {
             const from = UI.fromInput.value || "City A";
             const to = UI.toInput.value || "City B";
             UI.busResults.innerHTML = "";
-            
-            // NOTE: This is placeholder data. In a real app, you'd fetch this from an API.
+
+            // Placeholder data
             [{ id: "bus101" }, { id: "bus202" }].forEach(bus => {
                 const card = document.createElement("div");
                 card.className = "bus-card";
                 card.innerHTML = `
                     <span><b>${bus.id}</b>: ${from} → ${to}</span>
                     <button data-id="${bus.id}" class="btn btn-success">Track on Map</button>`;
-                
+
                 card.querySelector("button").addEventListener("click", () => {
-                    // Switch to map tab to track the bus
-                    document.querySelector('.tab[data-target="map-section"]').click();
-                    // Future enhancement: Pan the map to this specific bus
+                    const mapTab = document.querySelector('.tab[data-target="map-section"]');
+                    if (mapTab) mapTab.click();
+                    // Future: pan to specific bus when real data is integrated
                 });
-                
+
                 UI.busResults.appendChild(card);
             });
         }
-
 
         // =================================================================
         //  MAP FUNCTIONS
@@ -526,47 +530,57 @@
 
         function initMap() {
             mapInitialized = true;
-            map = L.map('map').setView([20.5937, 78.9629], 5); // Center on India
+            try {
+                map = L.map('map', { preferCanvas: true }).setView([20.5937, 78.9629], 5); // Center on India
 
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                maxZoom: 19,
-                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            }).addTo(map);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
 
-            busLayer = L.layerGroup().addTo(map);
-            roadHealthLayer = L.layerGroup();
-            
-            const overlayMaps = {
-                "🚍 Live Buses": busLayer,
-                "🛣️ Road Health": roadHealthLayer
-            };
-            L.control.layers(null, overlayMaps, { position: 'topleft' }).addTo(map);
+                busLayer = L.layerGroup().addTo(map);
+                roadHealthLayer = L.layerGroup();
 
-            loadBuses();
-            fetchRoadHealth();
+                const overlayMaps = {
+                    '🚍 Live Buses': busLayer,
+                    '🛣️ Road Health': roadHealthLayer
+                };
+                L.control.layers(null, overlayMaps, { position: 'topleft' }).addTo(map);
 
-            setInterval(() => {
-                if (mapInitialized) loadBuses();
-            }, BUS_REFRESH_INTERVAL);
+                // Initial loads
+                loadBuses();
+                fetchRoadHealth();
+
+                // Periodic refresh
+                refreshIntervalId = setInterval(() => {
+                    if (mapInitialized) loadBuses();
+                }, BUS_REFRESH_INTERVAL);
+
+                // Ensure map renders correctly when its container becomes visible
+                setTimeout(() => { try { map.invalidateSize(); } catch (e) { } }, 300);
+            } catch (err) {
+                console.error('Error initializing map', err);
+            }
         }
 
         function toggleFullScreen() {
             const mapContainer = document.getElementById('map-section');
+            if (!mapContainer) return;
             if (!document.fullscreenElement) {
-                mapContainer.requestFullscreen().catch(err => {
-                    alert(`Error attempting to enable full-screen mode: ${err.message}`);
+                mapContainer.requestFullscreen?.().catch(err => {
+                    console.warn('Full-screen not available:', err && err.message ? err.message : err);
                 });
             } else {
-                document.exitFullscreen();
+                document.exitFullscreen?.();
             }
+
+            setTimeout(() => { if (map) try { map.invalidateSize(); } catch (e) { } }, 300);
         }
 
         function toggleZenMode() {
             document.body.classList.toggle('zen-mode');
-            // Invalidate map size to ensure it resizes correctly
-            setTimeout(() => map.invalidateSize(), 300);
+            setTimeout(() => { if (map) try { map.invalidateSize(); } catch (e) { } }, 300);
         }
-
 
         // =================================================================
         //  API & DATA FETCHING
@@ -582,87 +596,127 @@
             };
 
             const response = await fetch(url, { ...options, headers });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `API request failed with status ${response.status}`);
+
+            // Attempt to parse JSON safely
+            let data;
+            try {
+                data = await response.json();
+            } catch (err) {
+                const text = await response.text();
+                throw new Error(text || `API request failed with status ${response.status}`);
             }
-            return response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || `API request failed with status ${response.status}`);
+            }
+
+            return data;
         }
 
         async function loadBuses() {
+            if (!busLayer) return;
             try {
                 const rows = await apiFetch('bus_location?select=*&order=ts.desc&limit=200');
-                
-                // Get the latest unique location for each bus
+                if (!Array.isArray(rows)) return;
+
+                // Build latest location per device
                 const latestLocations = {};
                 rows.forEach(r => {
-                    if (!latestLocations[r.device_id]) {
-                        latestLocations[r.device_id] = r;
-                    }
+                    // r.device_id expected
+                    if (!r || !r.device_id) return;
+                    if (!latestLocations[r.device_id]) latestLocations[r.device_id] = r;
                 });
 
                 busLayer.clearLayers();
+                const bounds = [];
+
                 Object.values(latestLocations).forEach(r => {
-                    if (!r.lat || !r.lon) return;
-                    L.marker([r.lat, r.lon], { icon: busIcon })
-                        .addTo(busLayer)
-                        .bindPopup(`<b>Bus ID:</b> ${r.device_id}`);
+                    const lat = parseFloat(r.lat ?? r.latitude ?? r.lat_start);
+                    const lon = parseFloat(r.lon ?? r.longitude ?? r.lon_start);
+                    if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+
+                    const marker = L.marker([lat, lon], { icon: busIcon });
+                    marker.addTo(busLayer).bindPopup(`<b>Bus ID:</b> ${r.device_id}`);
+                    bounds.push([lat, lon]);
                 });
+
+                if (bounds.length === 1) {
+                    map.setView(bounds[0], 13);
+                } else if (bounds.length > 1) {
+                    try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 }); } catch (e) { }
+                }
+
             } catch (error) {
                 console.error("Error loading bus locations:", error);
             }
         }
 
         async function fetchRoadHealth() {
+            if (!roadHealthLayer) return;
             try {
                 const rows = await apiFetch('road_health?select=*');
                 roadHealthLayer.clearLayers();
+                if (!Array.isArray(rows)) return;
+
                 rows.forEach(r => {
-                    const color = r.score === "bad" ? "red" : r.score === "medium" ? "orange" : "green";
-                    L.polyline([[r.lat_start, r.lon_start], [r.lat_end, r.lon_end]], {
-                        color,
-                        weight: 5,
-                        opacity: 0.8
-                    }).addTo(roadHealthLayer);
+                    const lat1 = parseFloat(r.lat_start ?? r.lat1 ?? r.lat);
+                    const lon1 = parseFloat(r.lon_start ?? r.lon1 ?? r.lon);
+                    const lat2 = parseFloat(r.lat_end ?? r.lat2);
+                    const lon2 = parseFloat(r.lon_end ?? r.lon2);
+                    if (Number.isNaN(lat1) || Number.isNaN(lon1) || Number.isNaN(lat2) || Number.isNaN(lon2)) return;
+
+                    const color = (r.score === "bad") ? "red" : (r.score === "medium") ? "orange" : "green";
+                    L.polyline([[lat1, lon1], [lat2, lon2]], { color, weight: 5, opacity: 0.8 }).addTo(roadHealthLayer);
                 });
             } catch (error) {
                 console.error("Error fetching road health:", error);
             }
         }
 
-
         // =================================================================
         //  HAZARD REPORTING
         // =================================================================
 
         function openHazardModal() {
+            if (!UI.modalOverlay) return;
             UI.modalOverlay.classList.add("visible");
-            UI.hzLoc.value = "Locating...";
-            
+            if (UI.hzLoc) UI.hzLoc.value = "Locating...";
+
+            if (!navigator.geolocation) {
+                if (UI.hzLoc) UI.hzLoc.value = "Geolocation not supported.";
+                return;
+            }
+
             navigator.geolocation.getCurrentPosition(
                 pos => {
-                    UI.hzLoc.value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
-                    UI.modalOverlay.dataset.lat = pos.coords.latitude;
-                    UI.modalOverlay.dataset.lon = pos.coords.longitude;
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    UI.hzLoc.value = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+                    UI.modalOverlay.dataset.lat = lat;
+                    UI.modalOverlay.dataset.lon = lon;
                 },
-                () => {
-                    UI.hzLoc.value = "Could not get location.";
+                err => {
+                    console.warn('Geolocation error', err);
+                    if (UI.hzLoc) UI.hzLoc.value = "Could not get location.";
                 },
-                { enableHighAccuracy: true }
+                { enableHighAccuracy: true, timeout: 8000 }
             );
         }
-        
+
         function closeHazardModal() {
+            if (!UI.modalOverlay) return;
             UI.modalOverlay.classList.remove("visible");
-            UI.hazardForm.reset();
+            if (UI.hazardForm) UI.hazardForm.reset();
+            UI.modalOverlay.removeAttribute('data-lat');
+            UI.modalOverlay.removeAttribute('data-lon');
         }
 
         async function handleHazardSubmit() {
-            const lat = +UI.modalOverlay.dataset.lat;
-            const lon = +UI.modalOverlay.dataset.lon;
+            // Read lat/lon from dataset
+            const lat = parseFloat(UI.modalOverlay.dataset.lat);
+            const lon = parseFloat(UI.modalOverlay.dataset.lon);
 
-            if (!lat || !lon) {
+            if (Number.isNaN(lat) || Number.isNaN(lon)) {
                 alert("Location is required to submit a hazard report.");
                 return;
             }
@@ -670,7 +724,7 @@
             setSubmitButtonState(true, "Submitting...");
 
             try {
-                const photoFile = UI.hzPhoto.files[0];
+                const photoFile = UI.hzPhoto.files && UI.hzPhoto.files[0] ? UI.hzPhoto.files[0] : null;
                 const photo_data = photoFile ? await fileToBase64(photoFile) : null;
 
                 const payload = {
@@ -690,13 +744,15 @@
                 alert("Hazard submitted successfully!");
                 closeHazardModal();
             } catch (error) {
-                alert(`There was an error submitting your report: ${error.message}`);
+                console.error('Hazard submit error', error);
+                alert(`There was an error submitting your report: ${error && error.message ? error.message : error}`);
             } finally {
                 setSubmitButtonState(false, "Submit");
             }
         }
 
         function setSubmitButtonState(isDisabled, text) {
+            if (!UI.submitHzBtn) return;
             UI.submitHzBtn.disabled = isDisabled;
             UI.submitHzBtn.textContent = text;
         }
@@ -704,7 +760,7 @@
         // =================================================================
         //  HELPER FUNCTIONS
         // =================================================================
-        
+
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -713,6 +769,11 @@
                 reader.readAsDataURL(file);
             });
         }
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (refreshIntervalId) clearInterval(refreshIntervalId);
+        });
     </script>
 </body>
 
