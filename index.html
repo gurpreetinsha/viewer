@@ -1,1 +1,719 @@
-<!doctype html> <html> <head> <meta charset="utf-8"/> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>TheRoadApp - Viewer</title> <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/> <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"> <style> :root { --primary-color: #007BFF; --primary-hover: #0056b3; --danger-color: #dc3545; --danger-hover: #c82333; --success-color: #28a745; --success-hover: #218838; --secondary-color: #6c757d; --secondary-hover: #5a6268; --bg-color: #121212; --surface-color: #1e1e1e; --surface-color-2: #2a2a2a; --border-color: #444; --text-color: #f0f0f0; --text-muted: #aaa; --border-radius: 12px; --spacing-md: 16px; --spacing-lg: 24px; --transition-speed: 0.3s ease; } * { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: 'Space Grotesk', sans-serif; background: var(--bg-color); color: var(--text-color); line-height: 1.6; } body.zen-mode .main-header, body.zen-mode .tabs { display: none; } .container { max-width: 1200px; margin: 0 auto; padding: var(--spacing-lg); } .main-header { margin-bottom: var(--spacing-md); } h2 { margin-bottom: var(--spacing-md); } p { color: var(--text-muted); margin-bottom: var(--spacing-md); } .tabs { display: flex; background: var(--surface-color); border-radius: var(--border-radius); overflow: hidden; margin-bottom: var(--spacing-lg); } .tab { flex: 1; padding: var(--spacing-md); text-align: center; cursor: pointer; font-weight: 600; transition: background var(--transition-speed), color var(--transition-speed); border-bottom: 3px solid transparent; } .tab:hover { background: var(--surface-color-2); } .tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); } .section { display: none; } .section.active { display: block; } .form-group { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--spacing-md); margin-bottom: var(--spacing-md); } input, select, textarea { width: 100%; padding: 12px; border-radius: var(--border-radius); border: 1px solid var(--border-color); background: var(--surface-color-2); color: var(--text-color); font-family: inherit; font-size: 1rem; transition: border-color var(--transition-speed), box-shadow var(--transition-speed); } input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); } .btn { padding: 12px 18px; border: none; border-radius: var(--border-radius); font-weight: 600; font-size: 1rem; cursor: pointer; transition: background-color var(--transition-speed), transform var(--transition-speed); } .btn:hover { transform: translateY(-2px); } .btn-primary { background: var(--primary-color); color: #fff; } .btn-primary:hover { background: var(--primary-hover); } .btn-danger { background: var(--danger-color); color: #fff; } .btn-danger:hover { background: var(--danger-hover); } .btn-success { background: var(--success-color); color: #fff; } .btn-success:hover { background: var(--success-hover); } .btn-secondary { background: var(--secondary-color); color: #fff; } .btn-secondary:hover { background: var(--secondary-hover); } .bus-card { background: var(--surface-color); padding: var(--spacing-md); border-radius: var(--border-radius); margin-top: var(--spacing-md); display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md); border-left: 5px solid var(--primary-color); } /* -- Map Container & Controls -- */ .map-wrapper { position: relative; } #map { height: 75vh; border-radius: var(--border-radius); background-color: var(--surface-color); } .map-controls { position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; } .map-control-btn { background-color: rgba(30, 30, 30, 0.9); border: 1px solid var(--border-color); color: var(--text-color); width: 40px; height: 40px; border-radius: 8px; cursor: pointer; display: grid; place-items: center; font-size: 1.2rem; transition: background-color var(--transition-speed); } .map-control-btn:hover { background-color: var(--surface-color-2); } .leaflet-control-layers { background-color: rgba(30, 30, 30, 0.9) !important; border: 1px solid var(--border-color) !important; border-radius: 8px !important; color: var(--text-color) !important; } .leaflet-control-layers-base label, .leaflet-control-layers-overlays label { display: flex; align-items: center; gap: 8px; } .leaflet-control-layers-selector { margin-top: 0 !important; } /* -- Modal -- */ .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; z-index: 2000; transition: opacity var(--transition-speed), visibility var(--transition-speed); } .modal-overlay.visible { opacity: 1; visibility: visible; } .modal { background: var(--surface-color); padding: var(--spacing-lg); border-radius: var(--border-radius); width: 90%; max-width: 450px; transform: scale(0.95); transition: transform var(--transition-speed); } .modal-overlay.visible .modal { transform: scale(1); } .modal-content > * + * { margin-top: var(--spacing-md); } .modal-actions { display: flex; justify-content: flex-end; gap: var(--spacing-md); margin-top: var(--spacing-lg); } /* -- Responsive -- */ @media (max-width: 768px) { .container { padding: var(--spacing-md); } .form-group { grid-template-columns: 1fr; } .bus-card { flex-direction: column; align-items: flex-start; } .bus-card .btn { width: 100%; text-align: center; } } </style> </head> <body> <main class="container"> <div class="main-header"> <h2>🚍 TheRoadApp</h2> </div> <div class="tabs"> <div class="tab active" data-target="home">HOME</div> <div class="tab" data-target="map-section">MAP</div> </div> <div id="home" class="section active"> <p>Track live bus locations and report road hazards in your area.</p> <div class="form-group"> <input id="from" type="text" placeholder="Departure Location" aria-label="Departure Location"> <input id="to" type="text" placeholder="Destination" aria-label="Destination"> <button id="search-btn" class="btn btn-primary">Search</button> </div> <div id="bus-results"></div> <button id="report-btn" class="btn btn-danger" style="margin-top: 24px; width:100%;">⚠️ Report Hazard</button> </div> <div id="map-section" class="section"> <div class="map-wrapper"> <div id="map"></div> <div class="map-controls"> <button id="fullscreen-btn" class="map-control-btn" title="Toggle Fullscreen">⛶</button> <button id="zen-mode-btn" class="map-control-btn" title="Hide UI">👁</button> </div> </div> </div> </main> <div id="modal" class="modal-overlay"> <div class="modal"> <h3>Report a New Hazard</h3> <form id="hazard-form" onsubmit="return false;"> <div class="modal-content"> <select id="hz-type" aria-label="Hazard Type"> <option value="pothole">Pothole</option> <option value="obstruction">Obstruction</option> <option value="flood">Flooding</option> <option value="accident">Accident</option> </select> <textarea id="hz-desc" placeholder="Describe the hazard..." rows="3" aria-label="Hazard Description"></textarea> <input id="hz-photo" type="file" accept="image/*" capture="environment" aria-label="Upload Photo"> <input id="hz-loc" placeholder="Your Location" readonly aria-label="Your Location"> </div> <div class="modal-actions"> <button id="cancel-hz" class="btn btn-secondary">Cancel</button> <button id="submit-hz" class="btn btn-primary">Submit</button> </div> </form> </div> </div> <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script> <script> // --- Supabase Config --- const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co"; const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuamhrbWx2Zm15bnh5anlweWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTA4MjMsImV4cCI6MjA3MzgyNjgyM30.Xp1Y3UvqQhbuxP3KV_1dtW8Zff-yy0fA94G5O3wecOo"; // IMPORTANT: Replace with your key // --- Global Variables --- let map, busLayer, roadHealthLayer, busMarkers = {}; let mapInitialized = false; const busIcon = L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/61/61212.png", iconSize: [32, 32], iconAnchor: [16, 16] }); // --- Tab Switching Logic --- document.querySelectorAll(".tab").forEach(tab => { tab.addEventListener("click", () => { document.querySelector(".tab.active").classList.remove("active"); document.querySelector(".section.active").classList.remove("active"); tab.classList.add("active"); document.getElementById(tab.dataset.target).classList.add("active"); if (tab.dataset.target === "map-section" && !mapInitialized) { initMap(); } }); }); // ================================================= // MAP INITIALIZATION // ================================================= function initMap() { mapInitialized = true; map = L.map('map').setView([20.5937, 78.9629], 5); // Center on India L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map); // --- Layer Groups --- busLayer = L.layerGroup().addTo(map); // Buses are visible by default roadHealthLayer = L.layerGroup(); const overlayMaps = { "🚍 Live Buses": busLayer, "🛣️ Road Health": roadHealthLayer }; L.control.layers(null, overlayMaps, { position: 'topleft' }).addTo(map); // --- Load Initial Data --- loadBuses(); fetchRoadHealth(); // --- Map Controls --- document.getElementById('fullscreen-btn').onclick = toggleFullScreen; document.getElementById('zen-mode-btn').onclick = toggleZenMode; } function toggleFullScreen() { const mapContainer = document.getElementById('map-section'); if (!document.fullscreenElement) { mapContainer.requestFullscreen().catch(err => alert(Error attempting to enable full-screen mode: ${err.message} (${err.name}))); } else { document.exitFullscreen(); } } function toggleZenMode() { document.body.classList.toggle('zen-mode'); // Invalidate map size to ensure it resizes correctly after UI hides/shows setTimeout(() => map.invalidateSize(), 300); } // ================================================= // DATA FETCHING // ================================================= async function loadBuses() { const url = ${SUPABASE_URL}/rest/v1/bus_location?select=*&order=ts.desc&limit=200; try { const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: Bearer ${SUPABASE_KEY} } }); if (!res.ok) throw new Error("Failed to fetch bus data"); const rows = await res.json(); const latest = {}; rows.forEach(r => { if (!latest[r.device_id]) latest[r.device_id] = r; }); busLayer.clearLayers(); // Clear previous markers Object.values(latest).forEach(r => { if (!r.lat || !r.lon) return; L.marker([r.lat, r.lon], { icon: busIcon }) .addTo(busLayer) .bindPopup(<b>Bus ID:</b> ${r.device_id}); }); } catch (error) { console.error("Error loading bus locations:", error); } } async function fetchRoadHealth() { const url = ${SUPABASE_URL}/rest/v1/road_health?select=*; try { const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: Bearer ${SUPABASE_KEY} } }); if (!res.ok) throw new Error("Failed to fetch road health data"); const rows = await res.json(); roadHealthLayer.clearLayers(); rows.forEach(r => { const color = r.score === "bad" ? "red" : r.score === "medium" ? "orange" : "green"; L.polyline([[r.lat_start, r.lon_start], [r.lat_end, r.lon_end]], { color, weight: 5, opacity: 0.8 }).addTo(roadHealthLayer); }); } catch (error) { console.error("Error fetching road health:", error); } } setInterval(() => { if (mapInitialized) loadBuses(); }, 10000); // Refresh buses every 10 seconds // ================================================= // HOME SECTION // ================================================= document.getElementById("search-btn").onclick = () => { const from = document.getElementById("from").value || "City A"; const to = document.getElementById("to").value || "City B"; const results = document.getElementById("bus-results"); results.innerHTML = ""; [{ id: "bus101" }, { id: "bus202" }].forEach(bus => { const card = document.createElement("div"); card.className = "bus-card"; card.innerHTML = <span><b>${bus.id}</b>: ${from} → ${to}</span><button data-id="${bus.id}" class="btn btn-success">Track on Map</button>; results.appendChild(card); card.querySelector("button").onclick = () => { // Switch to map tab document.querySelector('.tab[data-target="map-section"]').click(); }; }); }; // ================================================= // HAZARD REPORTING // ================================================= const modalOverlay = document.getElementById("modal"); document.getElementById("report-btn").onclick = () => { modalOverlay.classList.add("visible"); const locInput = document.getElementById("hz-loc"); locInput.value = "Locating..."; navigator.geolocation.getCurrentPosition( pos => { locInput.value = ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}; modalOverlay.dataset.lat = pos.coords.latitude; modalOverlay.dataset.lon = pos.coords.longitude; }, () => { locInput.value = "Could not get location."; } ); }; document.getElementById("cancel-hz").onclick = () => modalOverlay.classList.remove("visible"); document.getElementById("submit-hz").onclick = async () => { const payload = { type: document.getElementById("hz-type").value, description: document.getElementById("hz-desc").value, lat: +modalOverlay.dataset.lat, lon: +modalOverlay.dataset.lon, photo_data: document.getElementById("hz-photo").files[0] ? await fileToBase64(document.getElementById("hz-photo").files[0]) : null, created_at: new Date().toISOString() }; if (!payload.lat) { alert("Location is required."); return; } const submitBtn = document.getElementById("submit-hz"); submitBtn.disabled = true; submitBtn.textContent = "Submitting..."; try { const res = await fetch(${SUPABASE_URL}/rest/v1/hazards, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: Bearer ${SUPABASE_KEY}, "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if (!res.ok) throw new Error("Submission failed"); alert("Hazard submitted successfully!"); modalOverlay.classList.remove("visible"); document.getElementById("hazard-form").reset(); } catch (error) { alert("There was an error submitting your report."); } finally { submitBtn.disabled = false; submitBtn.textContent = "Submit"; } }; function fileToBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); reader.readAsDataURL(file); }); } </script> </body> </html>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TheRoadApp - Bus & Hazard Tracker</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ================================================
+         * ROOT VARIABLES & GLOBAL STYLES
+         * ================================================ */
+        :root {
+            --primary-color: #007BFF;
+            --primary-hover: #0056b3;
+            --danger-color: #dc3545;
+            --danger-hover: #c82333;
+            --success-color: #28a745;
+            --success-hover: #218838;
+            --secondary-color: #6c757d;
+            --secondary-hover: #5a6268;
+
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --surface-color-2: #2a2a2a;
+            --border-color: #444;
+            --shadow-color: rgba(0, 0, 0, 0.4);
+
+            --text-color: #f0f0f0;
+            --text-muted: #aaa;
+
+            --border-radius: 12px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --transition-speed: 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Hide UI elements in Zen Mode */
+        body.zen-mode .main-header,
+        body.zen-mode .tabs-nav {
+            display: none;
+        }
+
+        /* ================================================
+         * LAYOUT & CONTAINER
+         * ================================================ */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+        }
+
+        .main-header {
+            margin-bottom: var(--spacing-md);
+        }
+
+        h2, h3 {
+            font-weight: 700;
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: var(--spacing-md);
+        }
+
+        /* ================================================
+         * TABS
+         * ================================================ */
+        .tabs-nav {
+            display: flex;
+            background: var(--surface-color);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .tab {
+            flex: 1;
+            padding: var(--spacing-md);
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background var(--transition-speed), color var(--transition-speed);
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab:hover {
+            background: var(--surface-color-2);
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* ================================================
+         * FORMS & BUTTONS
+         * ================================================ */
+        .search-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            background: var(--surface-color-2);
+            color: var(--text-color);
+            font-family: inherit;
+            font-size: 1rem;
+            transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+
+        .btn {
+            padding: 12px 18px;
+            border: none;
+            border-radius: var(--border-radius);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color var(--transition-speed), transform var(--transition-speed);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow-color);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-primary { background: var(--primary-color); color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-danger { background: var(--danger-color); color: #fff; }
+        .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+        .btn-success { background: var(--success-color); color: #fff; }
+        .btn-success:hover:not(:disabled) { background: var(--success-hover); }
+        .btn-secondary { background: var(--secondary-color); color: #fff; }
+        .btn-secondary:hover:not(:disabled) { background: var(--secondary-hover); }
+
+        /* ================================================
+         * COMPONENTS (Cards, Modal)
+         * ================================================ */
+        .bus-card {
+            background: var(--surface-color);
+            padding: var(--spacing-md);
+            border-radius: var(--border-radius);
+            margin-top: var(--spacing-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: var(--spacing-md);
+            border-left: 5px solid var(--primary-color);
+            transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+        }
+        
+        .bus-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            z-index: 2000;
+            transition: opacity var(--transition-speed), visibility var(--transition-speed);
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--surface-color);
+            padding: var(--spacing-lg);
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 450px;
+            transform: scale(0.95);
+            transition: transform var(--transition-speed);
+            box-shadow: 0 8px 30px var(--shadow-color);
+        }
+
+        .modal-overlay.visible .modal {
+            transform: scale(1);
+        }
+
+        .modal-content > * + * {
+            margin-top: var(--spacing-md);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+
+        /* ================================================
+         * MAP & CONTROLS
+         * ================================================ */
+        .map-wrapper {
+            position: relative;
+            height: 75vh;
+        }
+
+        #map {
+            height: 100%;
+            border-radius: var(--border-radius);
+            background-color: var(--surface-color);
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .map-control-btn {
+            background-color: rgba(30, 30, 30, 0.9);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            font-size: 1.2rem;
+            transition: background-color var(--transition-speed);
+        }
+
+        .map-control-btn:hover {
+            background-color: var(--surface-color-2);
+        }
+
+        /* Leaflet Overrides */
+        .leaflet-control-layers {
+            background-color: rgba(30, 30, 30, 0.9) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 8px !important;
+            color: var(--text-color) !important;
+        }
+
+        .leaflet-control-layers-base label,
+        .leaflet-control-layers-overlays label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .leaflet-control-layers-selector {
+            margin-top: 0 !important;
+        }
+        
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background: var(--surface-color-2) !important;
+            color: var(--text-color) !important;
+            box-shadow: 0 3px 14px var(--shadow-color) !important;
+        }
+
+        /* ================================================
+         * RESPONSIVE DESIGN
+         * ================================================ */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--spacing-md);
+            }
+
+            .search-form {
+                grid-template-columns: 1fr;
+            }
+
+            .bus-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .bus-card .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <header class="main-header">
+            <h2>🚍 TheRoadApp</h2>
+        </header>
+
+        <nav class="tabs-nav">
+            <div class="tab active" data-target="home">HOME</div>
+            <div class="tab" data-target="map-section">MAP</div>
+        </nav>
+
+        <section id="home" class="section active">
+            <p>Track live bus locations and report road hazards in your area.</p>
+            <form class="search-form" onsubmit="return false;">
+                <input id="from" type="text" placeholder="Departure Location" aria-label="Departure Location">
+                <input id="to" type="text" placeholder="Destination" aria-label="Destination">
+                <button id="search-btn" class="btn btn-primary">Search</button>
+            </form>
+            <div id="bus-results"></div>
+            <button id="report-btn" class="btn btn-danger" style="margin-top: 24px; width:100%;">⚠️ Report Hazard</button>
+        </section>
+
+        <section id="map-section" class="section">
+            <div class="map-wrapper">
+                <div id="map"></div>
+                <div class="map-controls">
+                    <button id="fullscreen-btn" class="map-control-btn" title="Toggle Fullscreen">⛶</button>
+                    <button id="zen-mode-btn" class="map-control-btn" title="Hide UI">👁</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="modal" class="modal-overlay">
+        <div class="modal">
+            <h3>Report a New Hazard</h3>
+            <form id="hazard-form" onsubmit="return false;">
+                <div class="modal-content">
+                    <select id="hz-type" aria-label="Hazard Type">
+                        <option value="pothole">Pothole</option>
+                        <option value="obstruction">Obstruction</option>
+                        <option value="flood">Flooding</option>
+                        <option value="accident">Accident</option>
+                    </select>
+                    <textarea id="hz-desc" placeholder="Describe the hazard..." rows="3" aria-label="Hazard Description"></textarea>
+                    <input id="hz-photo" type="file" accept="image/*" capture="environment" aria-label="Upload Photo">
+                    <input id="hz-loc" placeholder="Your Location" readonly aria-label="Your Location">
+                </div>
+                <div class="modal-actions">
+                    <button id="cancel-hz" type="button" class="btn btn-secondary">Cancel</button>
+                    <button id="submit-hz" type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // =================================================================
+        //  CONFIG & STATE
+        // =================================================================
+
+        const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuamhrbWx2Zm15bnh5anlweWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTA4MjMsImV4cCI6MjA3MzgyNjgyM30.Xp1Y3UvqQhbuxP3KV_1dtW8Zff-yy0fA94G5O3wecOo";
+        const BUS_REFRESH_INTERVAL = 10000; // 10 seconds
+
+        let map, busLayer, roadHealthLayer;
+        let mapInitialized = false;
+
+        const busIcon = L.icon({
+            iconUrl: "https://cdn-icons-png.flaticon.com/512/61/61212.png",
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+
+        // =================================================================
+        //  DOM ELEMENTS
+        // =================================================================
+
+        const UI = {
+            tabs: document.querySelectorAll(".tab"),
+            sections: document.querySelectorAll(".section"),
+            searchBtn: document.getElementById("search-btn"),
+            fromInput: document.getElementById("from"),
+            toInput: document.getElementById("to"),
+            busResults: document.getElementById("bus-results"),
+            reportBtn: document.getElementById("report-btn"),
+            fullscreenBtn: document.getElementById("fullscreen-btn"),
+            zenModeBtn: document.getElementById("zen-mode-btn"),
+            modalOverlay: document.getElementById("modal"),
+            hazardForm: document.getElementById("hazard-form"),
+            cancelHzBtn: document.getElementById("cancel-hz"),
+            submitHzBtn: document.getElementById("submit-hz"),
+            hzType: document.getElementById("hz-type"),
+            hzDesc: document.getElementById("hz-desc"),
+            hzPhoto: document.getElementById("hz-photo"),
+            hzLoc: document.getElementById("hz-loc"),
+        };
+
+
+        // =================================================================
+        //  INITIALIZATION & EVENT LISTENERS
+        // =================================================================
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Tab switching
+            UI.tabs.forEach(tab => {
+                tab.addEventListener("click", () => handleTabSwitch(tab));
+            });
+
+            // Home section
+            UI.searchBtn.addEventListener("click", handleSearch);
+            UI.reportBtn.addEventListener("click", openHazardModal);
+
+            // Map controls
+            UI.fullscreenBtn.addEventListener("click", toggleFullScreen);
+            UI.zenModeBtn.addEventListener("click", toggleZenMode);
+            
+            // Modal controls
+            UI.cancelHzBtn.addEventListener("click", closeHazardModal);
+            UI.hazardForm.addEventListener("submit", handleHazardSubmit);
+        }
+
+
+        // =================================================================
+        //  UI HANDLERS
+        // =================================================================
+
+        function handleTabSwitch(clickedTab) {
+            document.querySelector(".tab.active").classList.remove("active");
+            document.querySelector(".section.active").classList.remove("active");
+            
+            clickedTab.classList.add("active");
+            document.getElementById(clickedTab.dataset.target).classList.add("active");
+            
+            if (clickedTab.dataset.target === "map-section" && !mapInitialized) {
+                initMap();
+            }
+        }
+        
+        /**
+         * Placeholder for bus search functionality.
+         */
+        function handleSearch() {
+            const from = UI.fromInput.value || "City A";
+            const to = UI.toInput.value || "City B";
+            UI.busResults.innerHTML = "";
+            
+            // NOTE: This is placeholder data. In a real app, you'd fetch this from an API.
+            [{ id: "bus101" }, { id: "bus202" }].forEach(bus => {
+                const card = document.createElement("div");
+                card.className = "bus-card";
+                card.innerHTML = `
+                    <span><b>${bus.id}</b>: ${from} → ${to}</span>
+                    <button data-id="${bus.id}" class="btn btn-success">Track on Map</button>`;
+                
+                card.querySelector("button").addEventListener("click", () => {
+                    // Switch to map tab to track the bus
+                    document.querySelector('.tab[data-target="map-section"]').click();
+                    // Future enhancement: Pan the map to this specific bus
+                });
+                
+                UI.busResults.appendChild(card);
+            });
+        }
+
+
+        // =================================================================
+        //  MAP FUNCTIONS
+        // =================================================================
+
+        function initMap() {
+            mapInitialized = true;
+            map = L.map('map').setView([20.5937, 78.9629], 5); // Center on India
+
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map);
+
+            busLayer = L.layerGroup().addTo(map);
+            roadHealthLayer = L.layerGroup();
+            
+            const overlayMaps = {
+                "🚍 Live Buses": busLayer,
+                "🛣️ Road Health": roadHealthLayer
+            };
+            L.control.layers(null, overlayMaps, { position: 'topleft' }).addTo(map);
+
+            loadBuses();
+            fetchRoadHealth();
+
+            setInterval(() => {
+                if (mapInitialized) loadBuses();
+            }, BUS_REFRESH_INTERVAL);
+        }
+
+        function toggleFullScreen() {
+            const mapContainer = document.getElementById('map-section');
+            if (!document.fullscreenElement) {
+                mapContainer.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable full-screen mode: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function toggleZenMode() {
+            document.body.classList.toggle('zen-mode');
+            // Invalidate map size to ensure it resizes correctly
+            setTimeout(() => map.invalidateSize(), 300);
+        }
+
+
+        // =================================================================
+        //  API & DATA FETCHING
+        // =================================================================
+
+        async function apiFetch(endpoint, options = {}) {
+            const url = `${SUPABASE_URL}/rest/v1/${endpoint}`;
+            const headers = {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                "Content-Type": "application/json",
+                ...options.headers
+            };
+
+            const response = await fetch(url, { ...options, headers });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `API request failed with status ${response.status}`);
+            }
+            return response.json();
+        }
+
+        async function loadBuses() {
+            try {
+                const rows = await apiFetch('bus_location?select=*&order=ts.desc&limit=200');
+                
+                // Get the latest unique location for each bus
+                const latestLocations = {};
+                rows.forEach(r => {
+                    if (!latestLocations[r.device_id]) {
+                        latestLocations[r.device_id] = r;
+                    }
+                });
+
+                busLayer.clearLayers();
+                Object.values(latestLocations).forEach(r => {
+                    if (!r.lat || !r.lon) return;
+                    L.marker([r.lat, r.lon], { icon: busIcon })
+                        .addTo(busLayer)
+                        .bindPopup(`<b>Bus ID:</b> ${r.device_id}`);
+                });
+            } catch (error) {
+                console.error("Error loading bus locations:", error);
+            }
+        }
+
+        async function fetchRoadHealth() {
+            try {
+                const rows = await apiFetch('road_health?select=*');
+                roadHealthLayer.clearLayers();
+                rows.forEach(r => {
+                    const color = r.score === "bad" ? "red" : r.score === "medium" ? "orange" : "green";
+                    L.polyline([[r.lat_start, r.lon_start], [r.lat_end, r.lon_end]], {
+                        color,
+                        weight: 5,
+                        opacity: 0.8
+                    }).addTo(roadHealthLayer);
+                });
+            } catch (error) {
+                console.error("Error fetching road health:", error);
+            }
+        }
+
+
+        // =================================================================
+        //  HAZARD REPORTING
+        // =================================================================
+
+        function openHazardModal() {
+            UI.modalOverlay.classList.add("visible");
+            UI.hzLoc.value = "Locating...";
+            
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    UI.hzLoc.value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+                    UI.modalOverlay.dataset.lat = pos.coords.latitude;
+                    UI.modalOverlay.dataset.lon = pos.coords.longitude;
+                },
+                () => {
+                    UI.hzLoc.value = "Could not get location.";
+                },
+                { enableHighAccuracy: true }
+            );
+        }
+        
+        function closeHazardModal() {
+            UI.modalOverlay.classList.remove("visible");
+            UI.hazardForm.reset();
+        }
+
+        async function handleHazardSubmit() {
+            const lat = +UI.modalOverlay.dataset.lat;
+            const lon = +UI.modalOverlay.dataset.lon;
+
+            if (!lat || !lon) {
+                alert("Location is required to submit a hazard report.");
+                return;
+            }
+
+            setSubmitButtonState(true, "Submitting...");
+
+            try {
+                const photoFile = UI.hzPhoto.files[0];
+                const photo_data = photoFile ? await fileToBase64(photoFile) : null;
+
+                const payload = {
+                    type: UI.hzType.value,
+                    description: UI.hzDesc.value,
+                    lat,
+                    lon,
+                    photo_data,
+                    created_at: new Date().toISOString()
+                };
+
+                await apiFetch('hazards', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                alert("Hazard submitted successfully!");
+                closeHazardModal();
+            } catch (error) {
+                alert(`There was an error submitting your report: ${error.message}`);
+            } finally {
+                setSubmitButtonState(false, "Submit");
+            }
+        }
+
+        function setSubmitButtonState(isDisabled, text) {
+            UI.submitHzBtn.disabled = isDisabled;
+            UI.submitHzBtn.textContent = text;
+        }
+
+        // =================================================================
+        //  HELPER FUNCTIONS
+        // =================================================================
+        
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
+</body>
+
+</html>
