@@ -1,120 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1a1a1a">
   <title>TheRoadApp - Bus & Hazard Tracker</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 
   <style>
-    /* ==========================================================================
-       1. Design System & Base Styles
-       ========================================================================== */
-    :root {
-      --primary-color: #007aff; --primary-color-hover: #0056b3; --danger-color: #dc3545;
-      --bg-color: #121212; --surface-color: #1e1e1e; --surface-color-2: #2c2c2e; --border-color: #3a3a3c;
-      --text-color: #f0f0f0; --text-muted: #a0a0a0; --text-on-primary: #ffffff;
-      --spacing-md: 16px; --border-radius: 12px; --transition-speed: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      --shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    :root{
+      --primary-color:#007BFF; --bg-color:#121212; --surface-color:#1e1e1e; --surface-color-2:#2a2a2a;
+      --text-color:#f0f0f0; --text-muted:#aaa; --border-color:#444; --border-radius:12px;
+      --spacing-md:16px; --transition-speed:0.25s ease;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Space Grotesk',sans-serif;background:var(--bg-color);color:var(--text-color);-webkit-font-smoothing:antialiased}
 
-    body {
-      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background-color: var(--bg-color); color: var(--text-color); line-height: 1.6;
-    }
-    
-    body.zen-mode .main-header,
-    body.zen-mode .tabs-nav,
-    body.zen-mode .map-custom-controls { display: none; }
-    body.zen-mode .map-wrapper { position: fixed; inset: 0; height: 100vh; width: 100vw; border-radius: 0; z-index: 5000; }
+    .container{max-width:1200px;margin:0 auto;padding:var(--spacing-md)}
+    .main-header{margin-bottom:var(--spacing-md)}
 
-    /* ==========================================================================
-       2. Layout & Components
-       ========================================================================== */
-    .container { max-width: 1200px; margin: 0 auto; padding: var(--spacing-md); }
-    .main-header h2 { font-size: 1.75rem; font-weight: 700; margin-bottom: var(--spacing-md); }
+    .tabs-nav{display:flex;background:var(--surface-color);border-radius:var(--border-radius);overflow:hidden;margin-bottom:var(--spacing-md)}
+    .tab{flex:1;padding:12px;text-align:center;cursor:pointer;font-weight:600;border-bottom:3px solid transparent}
+    .tab:hover{background:var(--surface-color-2)}
+    .tab.active{color:var(--primary-color);border-bottom-color:var(--primary-color)}
 
-    .tabs-nav { display: flex; background-color: var(--surface-color); border-radius: var(--border-radius); padding: 4px; margin-bottom: 24px; }
-    .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; font-weight: 500; border-radius: 8px; color: var(--text-muted); transition: all var(--transition-speed); }
-    .tab:hover { background-color: var(--surface-color-2); color: var(--text-color); }
-    .tab.active { background-color: var(--primary-color); color: var(--text-on-primary); font-weight: 700; box-shadow: var(--shadow); }
+    .section{display:none}
+    .section.active{display:block}
 
-    .section { display: none; }
-    .section.active { display: block; animation: fadeIn 0.5s var(--transition-speed); }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    
-    .form-group { position: relative; display: flex; flex-direction: column; gap: 8px; }
-    .search-form { display: flex; flex-direction: column; gap: var(--spacing-md); margin-bottom: 24px; }
+    .search-form{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;margin-bottom:12px}
+    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border-color);background:var(--surface-color-2);color:var(--text-color)}
 
-    input, select, textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-color-2); color: var(--text-color); font-family: inherit; font-size: 1rem; transition: all var(--transition-speed); }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3); }
+    .btn{padding:10px 14px;border-radius:10px;border:none;font-weight:600;cursor:pointer}
+    .btn-primary{background:var(--primary-color);color:#fff}
+    .btn-danger{background:#dc3545;color:#fff}
+    .btn-secondary{background:var(--border-color);color:#fff}
 
-    .autocomplete-suggestions { position: absolute; top: 100%; left: 0; right: 0; background-color: var(--surface-color-2); border: 1px solid var(--border-color); border-radius: 0 0 8px 8px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
-    .suggestion-item { padding: 10px 12px; cursor: pointer; }
-    .suggestion-item:hover { background-color: var(--primary-color); color: var(--text-on-primary); }
-    
-    .btn { padding: 12px 18px; border-radius: 8px; border: none; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all var(--transition-speed); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn:hover { transform: translateY(-2px); }
-    .btn:disabled { background-color: var(--border-color); cursor: not-allowed; transform: none; }
-    .btn-primary { background-color: var(--primary-color); color: var(--text-on-primary); }
-    .btn-primary:hover:not(:disabled) { background-color: var(--primary-color-hover); }
-    .btn-danger { background-color: var(--danger-color); color: var(--text-on-primary); }
+    .map-wrapper{position:relative;height:75vh;border-radius:var(--border-radius);overflow:hidden}
+    #map{height:100%;width:100%}
 
-    .map-wrapper { position: relative; height: 75vh; border-radius: var(--border-radius); overflow: hidden; background-color: var(--surface-color); }
-    #map { height: 100%; width: 100%; }
+    .map-controls{position:absolute;top:12px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:8px}
+    .map-control-btn{background:rgba(30,30,30,0.9);border:1px solid var(--border-color);color:var(--text-color);width:40px;height:40px;border-radius:8px;display:grid;place-items:center;cursor:pointer}
+    .theme-select{padding:8px;border-radius:8px;background:rgba(30,30,30,0.9);border:1px solid var(--border-color);color:var(--text-color)}
 
-    .map-custom-controls { position: absolute; top: var(--spacing-md); right: var(--spacing-md); z-index: 1000; background: rgba(30, 30, 30, 0.9); border: 1px solid var(--border-color); border-radius: var(--border-radius); backdrop-filter: blur(5px); box-shadow: var(--shadow); padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-    .control-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px; }
-    .control-row label { font-weight: 500; cursor: pointer; user-select: none; }
-    .control-buttons { display: flex; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 8px; }
-    .map-control-btn { background: var(--surface-color-2); border: 1px solid var(--border-color); color: var(--text-color); width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; transition: background-color var(--transition-speed); flex: 1; }
-    .map-control-btn:hover { background-color: var(--border-color); }
-    .map-control-btn svg { width: 18px; height: 18px; }
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;z-index:2000;transition:opacity var(--transition-speed),visibility var(--transition-speed)}
+    .modal-overlay.visible{opacity:1;visibility:visible}
+    .modal{background:var(--surface-color);padding:18px;border-radius:12px;width:92%;max-width:480px}
+    .modal-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:12px}
 
-    .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-    .toggle-switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; inset: 0; background-color: var(--border-color); border-radius: 34px; transition: var(--transition-speed); }
-    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: var(--transition-speed); }
-    input:checked + .slider { background-color: var(--primary-color); }
-    input:checked + .slider:before { transform: translateX(20px); }
+    .bus-card{background:var(--surface-color);padding:12px;border-radius:12px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;border-left:5px solid var(--primary-color)}
 
-    .bus-card { background: var(--surface-color); padding: var(--spacing-md); border-radius: var(--border-radius); margin-top: var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-md); border-left: 5px solid var(--primary-color); box-shadow: var(--shadow); transition: all var(--transition-speed); }
-    .bus-card:hover { transform: translateY(-4px); box-shadow: 0 8px 12px rgba(0, 0, 0, 0.3); }
-    
-    @media (min-width: 768px) {
-      .search-form { display: grid; grid-template-columns: 1fr 1fr auto; align-items: flex-end; }
-      .bus-card { flex-direction: row; justify-content: space-between; align-items: center; }
-    }
+    @media (max-width:768px){.search-form{grid-template-columns:1fr}.map-control-btn{width:36px;height:36px}}
   </style>
 </head>
 
 <body>
   <main class="container">
     <header class="main-header"><h2>🚍 TheRoadApp</h2></header>
-    <nav class="tabs-nav"> <div class="tab active" data-target="home">HOME</div> <div class="tab" data-target="map-section">MAP</div> </nav>
+
+    <nav class="tabs-nav">
+      <div class="tab active" data-target="home">HOME</div>
+      <div class="tab" data-target="map-section">MAP</div>
+    </nav>
 
     <section id="home" class="section active">
       <p>Track live bus locations and report road hazards in your area.</p>
-      <form class="search-form" onsubmit="event.preventDefault(); handleSearch();">
-        <div class="form-group">
-          <label for="from">Departure</label>
-          <input id="from" type="text" placeholder="e.g., Mumbai" autocomplete="off" required>
-          <div class="autocomplete-suggestions" id="from-suggestions"></div>
-        </div>
-        <div class="form-group">
-          <label for="to">Destination</label>
-          <input id="to" type="text" placeholder="e.g., Delhi" autocomplete="off" required>
-          <div class="autocomplete-suggestions" id="to-suggestions"></div>
-        </div>
-        <button id="search-btn" class="btn btn-primary" type="submit">Search</button>
+      <form class="search-form" onsubmit="return false;">
+        <input id="from" type="text" placeholder="Departure Location" aria-label="Departure Location">
+        <input id="to" type="text" placeholder="Destination" aria-label="Destination">
+        <button id="search-btn" class="btn btn-primary">Search</button>
       </form>
+
       <div id="bus-results"></div>
       <button id="report-btn" class="btn btn-danger" style="margin-top:18px;width:100%">⚠️ Report Hazard</button>
     </section>
@@ -122,338 +80,301 @@
     <section id="map-section" class="section">
       <div class="map-wrapper">
         <div id="map"></div>
-        <div class="map-custom-controls">
-          <div class="control-row">
-              <label for="bus-toggle">Live Buses</label>
-              <label class="toggle-switch"> <input type="checkbox" id="bus-toggle" checked> <span class="slider"></span> </label>
-          </div>
-          <div class="control-row">
-              <label for="road-toggle">Road Health</label>
-              <label class="toggle-switch"> <input type="checkbox" id="road-toggle" checked> <span class="slider"></span> </label>
-          </div>
-          <div class="control-buttons">
-              <button id="recenter-btn" class="map-control-btn" title="Recenter Map">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
-              </button>
-              <button id="fullscreen-btn" class="map-control-btn" title="Toggle Fullscreen">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16"><path d="M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 1-1 0v-4A1.5 1.5 0 0 1 1.5 0h4a.5.5 0 0 1 0 1h-4zM10 .5a.5.5 0 0 1 .5-.5h4A1.5 1.5 0 0 1 16 1.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 1-.5-.5zM.5 10a.5.5 0 0 1 .5.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 1 0 1h-4A1.5 1.5 0 0 1 0 14.5v-4a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v4a1.5 1.5 0 0 1-1.5 1.5h-4a.5.5 0 0 1 0-1h4a.5.5 0 0 0 .5-.5v-4a.5.5 0 0 1 .5-.5z"/></svg>
-              </button>
-              <button id="zen-mode-btn" class="map-control-btn" title="Hide UI">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.878 1.529-2.381 2.986-4.524 3.707C8.12 12.332 6.136 12.5 4.5 12.5c-1.55 0-2.959-.32-4.087-.938A13.09 13.09 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/></svg>
-              </button>
-          </div>
+
+        <div class="map-controls">
+          <select id="theme-select" class="theme-select" title="Map theme">
+            <option value="default">🌍 Default</option>
+            <option value="dark">🌑 Dark</option>
+            <option value="light">☀️ Light</option>
+            <option value="satellite">🛰️ Satellite</option>
+          </select>
+
+          <button id="fullscreen-btn" class="map-control-btn" title="Toggle fullscreen">⛶</button>
+          <button id="zen-mode-btn" class="map-control-btn" title="Zen mode">👁</button>
         </div>
       </div>
     </section>
+  </main>
 
-    </main>
-  
+  <div id="modal" class="modal-overlay">
+    <div class="modal">
+      <h3>Report a New Hazard</h3>
+      <form id="hazard-form" onsubmit="return false;">
+        <div class="modal-content">
+          <select id="hz-type" aria-label="Hazard Type">
+            <option value="pothole">Pothole</option>
+            <option value="obstruction">Obstruction</option>
+            <option value="flood">Flooding</option>
+            <option value="accident">Accident</option>
+          </select>
+          <textarea id="hz-desc" placeholder="Describe the hazard..." rows="3" aria-label="Hazard Description"></textarea>
+          <input id="hz-photo" type="file" accept="image/*" capture="environment" aria-label="Upload Photo">
+          <input id="hz-loc" placeholder="Your Location" readonly aria-label="Your Location">
+        </div>
+        <div class="modal-actions">
+          <button id="cancel-hz" type="button" class="btn btn-secondary">Cancel</button>
+          <button id="submit-hz" type="submit" class="btn btn-primary">Submit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // ==========================================================================
-    // CONFIG & STATE
-    // ==========================================================================
-    let map = null;
-    let busLayer = L.layerGroup();
-    let roadHealthLayer = L.layerGroup();
-    let mapInitialized = false;
-    let busMarkers = {}; // Store markers by bus ID
-    let busUpdateInterval = null; // To hold the setInterval ID
+    // CONFIG
+    const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuamhrbWx2Zm15bnh5anlweWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTA4MjMsImV4cCI6MjA3MzgyNjgyM30.Xp1Y3UvqQhbuxP3KV_1dtW8Zff-yy0fA94G5O3wecOo";
+    const BUS_REFRESH_INTERVAL = 10000;
 
+    // STATE
+    let map = null;
+    let busLayer = null;
+    let roadHealthLayer = null;
+    let mapInitialized = false;
+    let refreshIntervalId = null;
+    let currentBaseLayerKey = 'default';
+
+    // ICON
     const busIcon = L.icon({
       iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/97/GO_bus_symbol.svg',
-      iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -20]
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+      popupAnchor: [0, -18]
     });
 
-    // --- MOCK DATA REMOVED ---
-    // The indianCities array has been removed. Data will be fetched from an API.
-
-    // ==========================================================================
-    // API & HELPERS
-    // ==========================================================================
-    /**
-     * --- NEW: API Fetch Helper ---
-     * A centralized function for making API calls.
-     * @param {string} url - The API endpoint to call.
-     * @param {object} options - Fetch options (e.g., method, headers, body).
-     * @returns {Promise<any>} - The JSON response from the server.
-     */
-    async function apiFetch(url, options = {}) {
-        try {
-            const response = await fetch(url, options);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return await response.json();
-        } catch (error) {
-            console.error("API Fetch Error: ", error);
-            throw error; // Re-throw the error to be handled by the caller
-        }
-    }
-
-    /**
-     * --- NEW: Debounce Helper ---
-     * Prevents a function from being called too frequently.
-     */
-    function debounce(func, delay) {
-        let timeout;
-        return function(...args) {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), delay);
-        };
-    }
-
-    // ==========================================================================
-    // INITIALIZATION & EVENT LISTENERS
-    // ==========================================================================
-    document.addEventListener('DOMContentLoaded', () => {
-      // Setup main event listeners
-      document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => handleTabSwitch(tab.dataset.target)));
-      // Note: Search button now has type="submit" and is handled by the form's onsubmit event.
-      document.getElementById('report-btn').addEventListener('click', handleReportHazard);
-      
-      // --- REFACTORED: Setup autocomplete listeners with debouncing ---
-      const fromInput = document.getElementById('from');
-      const toInput = document.getElementById('to');
-      const debouncedShowSuggestions = debounce(showSuggestions, 300); // 300ms delay
-
-      fromInput.addEventListener('input', () => debouncedShowSuggestions(fromInput, document.getElementById('from-suggestions')));
-      toInput.addEventListener('input', () => debouncedShowSuggestions(toInput, document.getElementById('to-suggestions')));
-
-      document.addEventListener('click', (e) => { // Hide suggestions when clicking away
-        if (!e.target.closest('.form-group')) {
-          hideSuggestions(document.getElementById('from-suggestions'));
-          hideSuggestions(document.getElementById('to-suggestions'));
-        }
-      });
-    });
-
-    function setupMapEventListeners() {
-        document.getElementById('bus-toggle').addEventListener('change', (e) => toggleMapLayer(busLayer, e.target.checked));
-        document.getElementById('road-toggle').addEventListener('change', (e) => toggleMapLayer(roadHealthLayer, e.target.checked));
-        document.getElementById('recenter-btn').addEventListener('click', recenterMap);
-        document.getElementById('fullscreen-btn').addEventListener('click', toggleFullScreen);
-        document.getElementById('zen-mode-btn').addEventListener('click', toggleZenMode);
-    }
-    
-    // ==========================================================================
-    // UI & NAVIGATION
-    // ==========================================================================
-    function handleTabSwitch(targetId, options = {}) {
-      document.querySelector('.tab.active')?.classList.remove('active');
-      document.querySelector('.section.active')?.classList.remove('active');
-      document.querySelector(`.tab[data-target="${targetId}"]`)?.classList.add('active');
-      document.getElementById(targetId)?.classList.add('active');
-
-      if (targetId === 'map-section') {
-        if (!mapInitialized) initMap();
-        else setTimeout(() => map?.invalidateSize(), 250);
-        if (options.focusOnBusId) setTimeout(() => focusOnBus(options.focusOnBusId), 500);
-      }
-    }
-
-    /**
-     * --- REFACTORED: Fetches bus search results from the backend ---
-     */
-    async function handleSearch() {
-      const from = document.getElementById('from').value.trim();
-      const to = document.getElementById('to').value.trim();
-      if (!from || !to) {
-        alert("Please enter both departure and destination.");
-        return;
-      }
-
-      const resultsDiv = document.getElementById('bus-results');
-      const searchBtn = document.getElementById('search-btn');
-      resultsDiv.innerHTML = '<p>Searching for buses...</p>';
-      searchBtn.disabled = true;
-
-      try {
-        const buses = await apiFetch(`/api/search-buses?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-        
-        resultsDiv.innerHTML = '';
-        if (buses.length === 0) {
-            resultsDiv.innerHTML = `<p>No buses found for the route ${from} → ${to}.</p>`;
-            return;
-        }
-
-        buses.forEach(bus => {
-          const card = document.createElement('div');
-          card.className = 'bus-card';
-          card.innerHTML = `
-            <div>
-              <span style="font-size: 1.1rem;"><b>${bus.name}</b> (${bus.type})</span>
-              <p style="color:var(--text-muted); font-size: 0.9rem;">${from} → ${to}</p>
-            </div>
-            <button class="btn btn-primary track-btn" data-bus-id="${bus.id}">Track</button>`;
-          card.querySelector('.track-btn').addEventListener('click', (e) => {
-            handleTabSwitch('map-section', { focusOnBusId: e.currentTarget.dataset.busId });
-          });
-          resultsDiv.appendChild(card);
-        });
-      } catch (error) {
-        resultsDiv.innerHTML = `<p style="color: var(--danger-color);">Failed to fetch bus data. Please try again later.</p>`;
-      } finally {
-        searchBtn.disabled = false;
-      }
-    }
-
-    /**
-     * --- NEW: Handles the hazard report submission ---
-     */
-    async function handleReportHazard() {
-        // In a real app, you'd use navigator.geolocation to get coordinates
-        // and a modal form for better UX. This is a simplified example.
-        const hazardType = prompt("Enter hazard type (e.g., Pothole, Accident, Roadblock):");
-        if (!hazardType) return;
-
-        const description = prompt("Enter a brief description:");
-
-        // Placeholder coordinates (e.g., center of India)
-        const mockLocation = { lat: 22.5937, lon: 78.9629 };
-
-        try {
-            const response = await apiFetch('/api/report-hazard', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    latitude: mockLocation.lat,
-                    longitude: mockLocation.lon,
-                    type: hazardType,
-                    description: description
-                })
-            });
-            alert(response.message || "Hazard reported successfully!");
-        } catch (error) {
-            alert("Failed to report hazard. Please check your connection.");
-        }
-    }
-
-    // ==========================================================================
-    // AUTOCOMPLETE FUNCTIONALITY
-    // ==========================================================================
-    /**
-     * --- REFACTORED: Fetches suggestions from the backend ---
-     */
-    async function showSuggestions(inputEl, suggestionEl) {
-        const query = inputEl.value.toLowerCase();
-        if (query.length < 2) { // Start searching after 2 characters
-            hideSuggestions(suggestionEl);
-            return;
-        }
-
-        try {
-            const filteredCities = await apiFetch(`/api/cities?query=${encodeURIComponent(query)}`);
-            suggestionEl.innerHTML = '';
-
-            if (filteredCities.length > 0) {
-                filteredCities.forEach(city => {
-                    const item = document.createElement('div');
-                    item.className = 'suggestion-item';
-                    item.textContent = city;
-                    item.addEventListener('click', () => {
-                        inputEl.value = city;
-                        hideSuggestions(suggestionEl);
-                    });
-                    suggestionEl.appendChild(item);
-                });
-                suggestionEl.style.display = 'block';
-            } else {
-                hideSuggestions(suggestionEl);
-            }
-        } catch (error) {
-            console.error("Could not fetch city suggestions.", error);
-            hideSuggestions(suggestionEl);
-        }
-    }
-
-    function hideSuggestions(suggestionEl) {
-        suggestionEl.style.display = 'none';
-        suggestionEl.innerHTML = '';
-    }
-
-    // ==========================================================================
-    // MAP FUNCTIONALITY
-    // ==========================================================================
-    const baseLayers = {
-      dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }),
+    // DOM
+    const UI = {
+      tabs: document.querySelectorAll('.tab'),
+      sections: document.querySelectorAll('.section'),
+      searchBtn: document.getElementById('search-btn'),
+      fromInput: document.getElementById('from'),
+      toInput: document.getElementById('to'),
+      busResults: document.getElementById('bus-results'),
+      reportBtn: document.getElementById('report-btn'),
+      fullscreenBtn: document.getElementById('fullscreen-btn'),
+      zenModeBtn: document.getElementById('zen-mode-btn'),
+      modalOverlay: document.getElementById('modal'),
+      hazardForm: document.getElementById('hazard-form'),
+      cancelHzBtn: document.getElementById('cancel-hz'),
+      submitHzBtn: document.getElementById('submit-hz'),
+      hzType: document.getElementById('hz-type'),
+      hzDesc: document.getElementById('hz-desc'),
+      hzPhoto: document.getElementById('hz-photo'),
+      hzLoc: document.getElementById('hz-loc'),
+      themeSelect: document.getElementById('theme-select')
     };
 
-    function initMap() {
-      if (mapInitialized) return;
+    document.addEventListener('DOMContentLoaded', () => setupEventListeners());
+
+    function setupEventListeners(){
+      UI.tabs.forEach(tab => tab.addEventListener('click', () => handleTabSwitch(tab)));
+      UI.searchBtn.addEventListener('click', (e) => { e.preventDefault(); handleSearch(); });
+      UI.reportBtn.addEventListener('click', openHazardModal);
+      UI.cancelHzBtn.addEventListener('click', closeHazardModal);
+      UI.hazardForm.addEventListener('submit', (e) => { e.preventDefault(); handleHazardSubmit(); });
+      UI.fullscreenBtn.addEventListener('click', toggleFullScreen);
+      UI.zenModeBtn.addEventListener('click', toggleZenMode);
+      UI.themeSelect.addEventListener('change', (e) => setBaseLayer(e.target.value));
+    }
+
+    function handleTabSwitch(clickedTab){
+      const activeTab = document.querySelector('.tab.active');
+      const activeSection = document.querySelector('.section.active');
+      if(activeTab) activeTab.classList.remove('active');
+      if(activeSection) activeSection.classList.remove('active');
+
+      clickedTab.classList.add('active');
+      const targetId = clickedTab.dataset.target;
+      const targetSection = document.getElementById(targetId);
+      if(targetSection) targetSection.classList.add('active');
+
+      if(targetId === 'map-section' && !mapInitialized) initMap();
+      if(targetId === 'map-section' && map) setTimeout(()=>{ try{ map.invalidateSize(); } catch(e){} }, 250);
+    }
+
+    function handleSearch(){
+      const from = UI.fromInput.value || 'City A';
+      const to = UI.toInput.value || 'City B';
+      UI.busResults.innerHTML = '';
+
+      const example = [{id:'bus101'}, {id:'bus202'}];
+      example.forEach(bus => {
+        const card = document.createElement('div');
+        card.className = 'bus-card';
+        card.innerHTML = `<span><b>${bus.id}</b>: ${from} → ${to}</span><button class="btn btn-primary">Track on Map</button>`;
+        card.querySelector('button').addEventListener('click', () => {
+          document.querySelector('.tab[data-target="map-section"]').click();
+        });
+        UI.busResults.appendChild(card);
+      });
+    }
+
+    // MAP THEMES / TILE LAYERS
+    const baseLayers = {
+      default: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }),
+      dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO & OpenStreetMap' }),
+      light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO & OpenStreetMap' }),
+      satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' })
+    };
+
+    function initMap(){
       mapInitialized = true;
-      map = L.map('map', { center: [22.5937, 78.9629], zoom: 5, layers: [baseLayers.dark], zoomControl: false });
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
-      
-      busLayer.addTo(map);
-      roadHealthLayer.addTo(map);
-      
-      // --- REFACTORED: Load initial bus data and set up live updates ---
-      updateBusLocations(); // Initial load
-      busUpdateInterval = setInterval(updateBusLocations, 15000); // Update every 15 seconds
+      try{
+        map = L.map('map', { center:[20.5937,78.9629], zoom:5, layers:[baseLayers[currentBaseLayerKey]] });
 
-      // fetchRoadHealth(); // You can implement this similarly to updateBusLocations
-      setupMapEventListeners();
+        // Create overlay groups
+        busLayer = L.layerGroup().addTo(map);
+        roadHealthLayer = L.layerGroup().addTo(map);
+
+        // Add layer control (allows user to toggle base & overlays)
+        const baseMapsForControl = {
+          '🌍 Default': baseLayers.default,
+          '🌑 Dark': baseLayers.dark,
+          '☀️ Light': baseLayers.light,
+          '🛰 Satellite': baseLayers.satellite
+        };
+        const overlayMaps = {
+          '🚍 Live Buses': busLayer,
+          '🛣 Road Health': roadHealthLayer
+        };
+
+        L.control.layers(baseMapsForControl, overlayMaps, { position:'topleft', collapsed:false }).addTo(map);
+
+        // Initial data
+        loadBuses();
+        fetchRoadHealth();
+
+        if(refreshIntervalId) clearInterval(refreshIntervalId);
+        refreshIntervalId = setInterval(()=>{ if(mapInitialized) loadBuses(); }, BUS_REFRESH_INTERVAL);
+
+        // React to zoom/resize after render
+        setTimeout(()=>{ try{ map.invalidateSize(); } catch(e){} }, 300);
+
+      } catch(err){ console.error('initMap error',err); }
     }
-    
-    function toggleMapLayer(layer, show) {
-        if (!map) return;
-        if (show) map.addLayer(layer);
-        else map.removeLayer(layer);
+
+    function setBaseLayer(key){
+      if(!map || !baseLayers[key]) return;
+      try{
+        const newLayer = baseLayers[key];
+        const currentLayer = baseLayers[currentBaseLayerKey];
+        if(currentLayer && map.hasLayer(currentLayer)) map.removeLayer(currentLayer);
+        map.addLayer(newLayer);
+        currentBaseLayerKey = key;
+      }catch(e){ console.warn('setBaseLayer error', e); }
     }
-    
-    function recenterMap() { map?.flyTo([22.5937, 78.9629], 5); }
-    function toggleFullScreen() {
-      const mapWrapper = document.querySelector('.map-wrapper');
-      if (!document.fullscreenElement) mapWrapper.requestFullscreen?.();
+
+    function toggleFullScreen(){
+      const mapContainer = document.getElementById('map-section');
+      if(!mapContainer) return;
+      if(!document.fullscreenElement){ mapContainer.requestFullscreen?.().catch(()=>{}); }
       else document.exitFullscreen?.();
-    }
-    function toggleZenMode() {
-      document.body.classList.toggle('zen-mode');
-      setTimeout(() => map?.invalidateSize(), 300);
+      setTimeout(()=>{ if(map) try{ map.invalidateSize(); }catch(e){} }, 300);
     }
 
-    function focusOnBus(busId) {
-      if (!map || !busMarkers[busId]) {
-        console.warn(`Bus ${busId} not found on the map. It might not be active.`);
-        // Optional: Show an alert to the user
-        alert(`Location for bus ${busId} is not currently available.`);
-        return;
-      }
-      map.flyTo(busMarkers[busId].getLatLng(), 15);
-      busMarkers[busId].openPopup();
+    function toggleZenMode(){ document.body.classList.toggle('zen-mode'); setTimeout(()=>{ if(map) try{ map.invalidateSize(); }catch(e){} }, 300); }
+
+    // API helper
+    async function apiFetch(endpoint, options={}){
+      const url = `${SUPABASE_URL}/rest/v1/${endpoint}`;
+      const headers = { apikey: SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json', ...(options.headers||{}) };
+      const resp = await fetch(url, {...options, headers});
+      let data;
+      const text = await resp.text();
+      try{ data = text ? JSON.parse(text) : null; } catch(e){ data = text; }
+      if(!resp.ok){ const msg = (data && data.message) ? data.message : `API error ${resp.status}`; throw new Error(msg); }
+      return data;
     }
 
-    /**
-     * --- REFACTORED: Fetches live bus locations and updates the map ---
-     */
-    async function updateBusLocations(){
-        if(!busLayer || !map) return;
+    // Load buses and render markers using busIcon
+    async function loadBuses(){
+      if(!busLayer) return;
+      try{
+        const rows = await apiFetch('bus_location?select=*&order=ts.desc&limit=500');
+        if(!Array.isArray(rows)) return;
 
-        try {
-            const liveBusData = await apiFetch('/api/live-buses');
+        // get latest per device
+        const latest = {};
+        for(const r of rows){ if(!r || !r.device_id) continue; if(!latest[r.device_id]) latest[r.device_id] = r; }
 
-            // --- Efficiently update markers ---
-            liveBusData.forEach(bus => {
-                const marker = busMarkers[bus.device_id];
-                const latLng = [bus.lat, bus.lon];
-                const popupContent = `<b>Bus ID:</b> ${bus.device_id}<br><b>Updated:</b> ${new Date(bus.ts).toLocaleTimeString()}`;
-
-                if (marker) { // If marker already exists, just move it
-                    marker.setLatLng(latLng);
-                    marker.setPopupContent(popupContent);
-                } else { // Otherwise, create a new one
-                    const newMarker = L.marker(latLng, { icon: busIcon }).bindPopup(popupContent);
-                    busLayer.addLayer(newMarker);
-                    busMarkers[bus.device_id] = newMarker;
-                }
-            });
-
-        } catch (error) {
-            console.error("Failed to update bus locations.", error);
-            // Optionally, show a non-intrusive error message to the user
+        busLayer.clearLayers();
+        const bounds = [];
+        for(const r of Object.values(latest)){
+          const lat = parseFloat(r.lat ?? r.latitude ?? r.lat_start);
+          const lon = parseFloat(r.lon ?? r.longitude ?? r.lon_start);
+          if(Number.isFinite(lat) && Number.isFinite(lon)){
+            const marker = L.marker([lat, lon], { icon:busIcon }).addTo(busLayer).bindPopup(`<b>Bus ID:</b> ${escapeHtml(String(r.device_id))}`);
+            bounds.push([lat, lon]);
+          }
         }
+
+        if(bounds.length===1) map.setView(bounds[0],13);
+        else if(bounds.length>1) try{ map.fitBounds(bounds, { padding:[40,40], maxZoom:13 }); } catch(e){}
+
+      }catch(err){ console.error('loadBuses error', err); }
     }
+
+    // Road health lines
+    async function fetchRoadHealth(){
+      if(!roadHealthLayer) return;
+      try{
+        const rows = await apiFetch('road_health?select=*');
+        if(!Array.isArray(rows)) return;
+        roadHealthLayer.clearLayers();
+        for(const r of rows){
+          const lat1 = parseFloat(r.lat_start ?? r.lat1 ?? r.lat);
+          const lon1 = parseFloat(r.lon_start ?? r.lon1 ?? r.lon);
+          const lat2 = parseFloat(r.lat_end ?? r.lat2 ?? r.lat);
+          const lon2 = parseFloat(r.lon_end ?? r.lon2 ?? r.lon);
+          if([lat1,lon1,lat2,lon2].some(v => !Number.isFinite(v))) continue;
+          const color = (r.score==='bad') ? 'red' : (r.score==='medium') ? 'orange' : 'green';
+          L.polyline([[lat1,lon1],[lat2,lon2]], { color, weight:5, opacity:0.85 }).addTo(roadHealthLayer);
+        }
+      }catch(err){ console.error('fetchRoadHealth error', err); }
+    }
+
+    // HAZARD modal
+    function openHazardModal(){
+      if(!UI.modalOverlay) return;
+      UI.modalOverlay.classList.add('visible');
+      if(UI.hzLoc) UI.hzLoc.value = 'Locating...';
+
+      if(!navigator.geolocation) { if(UI.hzLoc) UI.hzLoc.value = 'Geolocation not supported'; return; }
+
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude; const lon = pos.coords.longitude;
+        if(UI.hzLoc) UI.hzLoc.value = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+        UI.modalOverlay.dataset.lat = lat; UI.modalOverlay.dataset.lon = lon;
+      }, err => { if(UI.hzLoc) UI.hzLoc.value = 'Could not get location.'; }, { enableHighAccuracy:true, timeout:8000 });
+    }
+
+    function closeHazardModal(){ if(!UI.modalOverlay) return; UI.modalOverlay.classList.remove('visible'); UI.hazardForm.reset(); delete UI.modalOverlay.dataset.lat; delete UI.modalOverlay.dataset.lon; }
+
+    async function handleHazardSubmit(){
+      const lat = parseFloat(UI.modalOverlay.dataset.lat); const lon = parseFloat(UI.modalOverlay.dataset.lon);
+      if(!Number.isFinite(lat) || !Number.isFinite(lon)) { alert('Location is required to submit a hazard report.'); return; }
+      setSubmitButtonState(true,'Submitting...');
+      try{
+        const photoFile = UI.hzPhoto.files && UI.hzPhoto.files[0] ? UI.hzPhoto.files[0] : null;
+        const photo_data = photoFile ? await fileToBase64(photoFile) : null;
+        const payload = { type: UI.hzType.value, description: UI.hzDesc.value, lat, lon, photo_data, created_at: new Date().toISOString() };
+        await apiFetch('hazards', { method:'POST', body: JSON.stringify(payload) });
+        alert('Hazard submitted successfully!');
+        closeHazardModal();
+      }catch(err){ console.error('hazard submit err',err); alert('Error submitting hazard: '+(err && err.message?err.message:err)); }
+      finally{ setSubmitButtonState(false,'Submit'); }
+    }
+
+    function setSubmitButtonState(disabled, text){ if(!UI.submitHzBtn) return; UI.submitHzBtn.disabled = disabled; UI.submitHzBtn.textContent = text; }
+
+    function fileToBase64(file){ return new Promise((res,rej)=>{ const reader=new FileReader(); reader.onload=()=>res(reader.result); reader.onerror=err=>rej(err); reader.readAsDataURL(file); }); }
+
+    function escapeHtml(str){ return str.replace(/[&<>"'`]/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;",'`':'&#96;'}[s])); }
+
+    // Clean up
+    window.addEventListener('beforeunload', ()=>{ if(refreshIntervalId) clearInterval(refreshIntervalId); });
+
   </script>
 </body>
+
 </html>
