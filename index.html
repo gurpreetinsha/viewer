@@ -137,16 +137,10 @@
 <script>
 // --- Supabase Config ---
 const SUPABASE_URL = "https://jnjhkmlvfmynxyjypyie.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuamhrbWx2Zm15bnh5anlweWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTA4MjMsImV4cCI6MjA3MzgyNjgyM30.Xp1Y3UvqQhbuxP3KV_1dtW8Zff-yy0fA94G5O3wecOo"; // IMPORTANT: Replace with your key
+const SUPABASE_KEY = "YOUR_KEY_HERE"; // replace with your key
 
 // --- Global Variables ---
-let map, busLayer, roadHealthLayer, busMarkers = {};
-let mapInitialized = false;
-
-const busIcon = L.icon({
-    iconUrl: "https://cdn-icons-png.flaticon.com/512/61/61212.png",
-    iconSize: [32, 32], iconAnchor: [16, 16]
-});
+let map, busLayer, roadHealthLayer, hazardLayer, mapInitialized = false;
 
 // --- Tab Switching Logic ---
 document.querySelectorAll(".tab").forEach(tab => {
@@ -171,18 +165,21 @@ function initMap() {
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
 
   // --- Layer Groups ---
-  busLayer = L.layerGroup().addTo(map); // Buses are visible by default
+  busLayer = L.layerGroup().addTo(map);
   roadHealthLayer = L.layerGroup();
+  hazardLayer = L.layerGroup().addTo(map);
 
   const overlayMaps = {
     "🚍 Live Buses": busLayer,
-    "🛣️ Road Health": roadHealthLayer
+    "🛣️ Road Health": roadHealthLayer,
+    "⚠️ Hazards": hazardLayer
   };
   L.control.layers(null, overlayMaps, { position: 'topleft' }).addTo(map);
 
   // --- Load Initial Data ---
   loadBuses();
   fetchRoadHealth();
+  fetchHazards();
 
   // --- Map Controls ---
   document.getElementById('fullscreen-btn').onclick = toggleFullScreen;
@@ -200,7 +197,6 @@ function toggleFullScreen() {
 
 function toggleZenMode() {
   document.body.classList.toggle('zen-mode');
-  // Invalidate map size to ensure it resizes correctly after UI hides/shows
   setTimeout(() => map.invalidateSize(), 300);
 }
 
@@ -217,12 +213,18 @@ async function loadBuses() {
     const latest = {};
     rows.forEach(r => { if (!latest[r.device_id]) latest[r.device_id] = r; });
     
-    busLayer.clearLayers(); // Clear previous markers
+    busLayer.clearLayers();
     Object.values(latest).forEach(r => {
       if (!r.lat || !r.lon) return;
-      L.marker([r.lat, r.lon], { icon: busIcon })
-        .addTo(busLayer)
-        .bindPopup(`<b>Bus ID:</b> ${r.device_id}`);
+      L.circleMarker([r.lat, r.lon], {
+        radius: 8,
+        fillColor: "#007BFF",
+        color: "#fff",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9
+      }).addTo(busLayer)
+      .bindPopup(`<b>Bus ID:</b> ${r.device_id}`);
     });
   } catch (error) { console.error("Error loading bus locations:", error); }
 }
@@ -242,7 +244,32 @@ async function fetchRoadHealth() {
   } catch (error) { console.error("Error fetching road health:", error); }
 }
 
-setInterval(() => { if (mapInitialized) loadBuses(); }, 10000); // Refresh buses every 10 seconds
+async function fetchHazards() {
+  const url = `${SUPABASE_URL}/rest/v1/hazards?select=*`;
+  try {
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
+    if (!res.ok) throw new Error("Failed to fetch hazards");
+    const rows = await res.json();
+
+    hazardLayer.clearLayers();
+    rows.forEach(hz => {
+      if (!hz.lat || !hz.lon) return;
+      L.circleMarker([hz.lat, hz.lon], {
+        radius: 6,
+        fillColor: "red",
+        color: "red",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.9
+      }).addTo(hazardLayer)
+      .bindPopup(`<b>Hazard:</b> ${hz.type}<br>${hz.description}`);
+    });
+  } catch (err) {
+    console.error("Error loading hazards:", err);
+  }
+}
+
+setInterval(() => { if (mapInitialized) loadBuses(); }, 10000);
 
 // =================================================
 //                  HOME SECTION
@@ -260,7 +287,6 @@ document.getElementById("search-btn").onclick = () => {
     results.appendChild(card);
     
     card.querySelector("button").onclick = () => {
-      // Switch to map tab
       document.querySelector('.tab[data-target="map-section"]').click();
     };
   });
@@ -297,33 +323,4 @@ document.getElementById("submit-hz").onclick = async () => {
   if (!payload.lat) { alert("Location is required."); return; }
 
   const submitBtn = document.getElementById("submit-hz");
-  submitBtn.disabled = true; submitBtn.textContent = "Submitting...";
-  
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/hazards`, {
-      method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error("Submission failed");
-    alert("Hazard submitted successfully!");
-    modalOverlay.classList.remove("visible");
-    document.getElementById("hazard-form").reset();
-  } catch (error) {
-    alert("There was an error submitting your report.");
-  } finally {
-    submitBtn.disabled = false; submitBtn.textContent = "Submit";
-  }
-};
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
-    reader.readAsDataURL(file);
-  });
-}
-</script>
-
-</body>
-</html>
+  submitBtn.disabled = true; submitBtn.textContent = "
